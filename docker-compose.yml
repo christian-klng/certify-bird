@@ -1,0 +1,47 @@
+# Komplette Instanz: Datenbank, Migrationen, App.
+# Werte kommen aus der Umgebung oder einer .env-Datei neben dieser Datei.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: certifybird
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss gesetzt sein}
+      POSTGRES_DB: certifybird
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U certifybird -d certifybird"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://certifybird:${POSTGRES_PASSWORD}@db:5432/certifybird
+      ORG_NAME: ${ORG_NAME:-}
+      ORG_SLUG: ${ORG_SLUG:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: app
+    restart: unless-stopped
+    environment:
+      APP_MODE: ${APP_MODE:-single}
+      APP_DOMAIN: ${APP_DOMAIN:-}
+      DATABASE_URL: postgresql://certifybird:${POSTGRES_PASSWORD}@db:5432/certifybird
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  db:
