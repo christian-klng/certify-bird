@@ -1,0 +1,248 @@
+import { db } from "../db";
+import { sendMail } from "../mail";
+import { isValidSlug } from "../tenant-host";
+import { generateToken, hashToken } from "./tokens";
+
+const LOGIN_TOKEN_MINUTES = 15;
+const SESSION_DAYS = 30;
+/** Höchstens so viele Links pro Adresse im Gültigkeitszeitraum. */
+const MAX_TOKENS_PER_WINDOW = 5;
+
+function minutesFromNow(minutes: number): Date {
+  return new Date(Date.now() + minutes * 60_000);
+}
+
+async function tooManyRecentTokens(email: string): Promise<boolean> {
+  const recent = await db().loginToken.count({
+    where: { email, createdAt: { gt: minutesFromNow(-LOGIN_TOKEN_MINUTES) } },
+  });
+  return recent >= MAX_TOKENS_PER_WINDOW;
+}
+
+function verifyUrl(origin: string, token: string): string {
+  return `${origin}/login/verify?token=${token}`;
+}
+
+/**
+ * Schickt einem Mitglied des Mandanten einen Anmeldelink.
+ * Gibt bewusst nichts zurück: Ob die Adresse bekannt ist, soll von außen
+ * nicht erkennbar sein.
+ */
+export async function requestLogin(input: {
+  email: string;
+  organization: { id: string; name: string };
+  origin: string;
+}): Promise<void> {
+  const membership = await db().membership.findFirst({
+    where: { organizationId: input.organization.id, user: { email: input.email } },
+    select: { id: true },
+  });
+  if (!membership) return;
+  if (await tooManyRecentTokens(input.email)) return;
+
+  const token = generateToken();
+  await db().loginToken.create({
+    data: {
+      tokenHash: hashToken(token),
+      purpose: "LOGIN",
+      email: input.email,
+      organizationId: input.organization.id,
+      expiresAt: minutesFromNow(LOGIN_TOKEN_MINUTES),
+    },
+  });
+  await sendMail({
+    to: input.email,
+    subject: `Anmeldung bei ${input.organization.name}`,
+    text: [
+      `Hallo,`,
+      ``,
+      `mit diesem Link meldest du dich bei ${input.organization.name} an:`,
+      ``,
+      verifyUrl(input.origin, token),
+      ``,
+      `Der Link gilt ${LOGIN_TOKEN_MINUTES} Minuten und nur einmal.`,
+      `Falls du keine Anmeldung angefordert hast, kannst du diese E-Mail ignorieren.`,
+    ].join("\n"),
+  });
+}
+
+export type RegistrationError = "name" | "slug-invalid" | "slug-taken";
+
+async function slugIsTaken(slug: string): Promise<boolean> {
+  const [organization, retired] = await Promise.all([
+    db().organization.findUnique({ where: { slug }, select: { id: true } }),
+    db().retiredSlug.findUnique({ where: { slug }, select: { slug: true } }),
+  ]);
+  return Boolean(organization || retired);
+}
+
+/**
+ * Nimmt eine Registrierung entgegen und schickt den Bestätigungslink.
+ * Der Mandant wird erst beim Einlösen des Links angelegt, damit niemand mit
+ * fremden Adressen Kürzel blockieren kann.
+ */
+export async function requestRegistration(input: {
+  email: string;
+  orgName: string;
+  slug: string;
+  origin: string;
+}): Promise<{ ok: true } | { ok: false; error: RegistrationError }> {
+  const orgName = input.orgName.trim();
+  if (orgName.length < 2 || orgName.length > 120) return { ok: false, error: "name" };
+  if (!isValidSlug(input.slug)) return { ok: false, error: "slug-invalid" };
+  if (await slugIsTaken(input.slug)) return { ok: false, error: "slug-taken" };
+  if (await tooManyRecentTokens(input.email)) return { ok: true };
+
+  const token = generateToken();
+  await db().loginToken.create({
+    data: {
+      tokenHash: hashToken(token),
+      purpose: "REGISTER",
+      email: input.email,
+      pendingOrgName: orgName,
+      pendingOrgSlug: input.slug,
+      expiresAt: minutesFromNow(LOGIN_TOKEN_MINUTES),
+    },
+  });
+  await sendMail({
+    to: input.email,
+    subject: `Registrierung von ${orgName} bestätigen`,
+    text: [
+      `Hallo,`,
+      ``,
+      `mit diesem Link schließt du die Registrierung von ${orgName} ab:`,
+      ``,
+      verifyUrl(input.origin, token),
+      ``,
+      `Der Link gilt ${LOGIN_TOKEN_MINUTES} Minuten und nur einmal.`,
+      `Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.`,
+    ].join("\n"),
+  });
+  return { ok: true };
+}
+
+/** Prüft einen Link, ohne ihn zu verbrauchen (für die Bestätigungsseite). */
+export async function peekLoginToken(
+  token: string,
+): Promise<{ purpose: "LOGIN" | "REGISTER"; organizationId: string | null } | null> {
+  const found = await db().loginToken.findUnique({
+    where: { tokenHash: hashToken(token) },
+    select: { purpose: true, organizationId: true, usedAt: true, expiresAt: true },
+  });
+  if (!found || found.usedAt || found.expiresAt <= new Date()) return null;
+  return { purpose: found.purpose, organizationId: found.organizationId };
+}
+
+export type ConfirmResult =
+  /** Anmeldung erfolgreich: Das Sitzungstoken gehört in den Cookie. */
+  | { kind: "session"; sessionToken: string; expiresAt: Date }
+  /** Registrierung erfolgreich: weiter zur Anmeldung beim neuen Mandanten. */
+  | { kind: "registered"; slug: string; loginToken: string }
+  | { kind: "invalid" }
+  | { kind: "slug-taken" };
+
+/**
+ * Löst einen Link ein. `context` beschreibt, auf welcher Adresse das passiert:
+ * Anmeldelinks gelten nur beim zugehörigen Mandanten, Registrierungslinks nur
+ * auf der Plattform.
+ */
+export async function confirmLoginToken(
+  token: string,
+  context: { kind: "tenant"; organizationId: string } | { kind: "platform" },
+): Promise<ConfirmResult> {
+  const tokenHash = hashToken(token);
+  const found = await db().loginToken.findUnique({ where: { tokenHash } });
+  if (!found) return { kind: "invalid" };
+
+  const matchesContext =
+    found.purpose === "LOGIN"
+      ? context.kind === "tenant" && context.organizationId === found.organizationId
+      : context.kind === "platform";
+  if (!matchesContext) return { kind: "invalid" };
+
+  // Atomar als benutzt markieren: Von zwei gleichzeitigen Versuchen gewinnt genau einer.
+  const claimed = await db().loginToken.updateMany({
+    where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+    data: { usedAt: new Date() },
+  });
+  if (claimed.count !== 1) return { kind: "invalid" };
+
+  if (found.purpose === "LOGIN") {
+    const membership = await db().membership.findFirst({
+      where: { organizationId: found.organizationId!, user: { email: found.email } },
+      select: { userId: true },
+    });
+    if (!membership) return { kind: "invalid" };
+    return createSession(membership.userId);
+  }
+
+  const slug = found.pendingOrgSlug!;
+  if (await slugIsTaken(slug)) return { kind: "slug-taken" };
+  const loginToken = generateToken();
+  try {
+    await db().$transaction(async (tx) => {
+      const organization = await tx.organization.create({
+        data: { name: found.pendingOrgName!, slug },
+      });
+      const user = await tx.user.upsert({
+        where: { email: found.email },
+        update: {},
+        create: { email: found.email },
+      });
+      await tx.membership.create({
+        data: { userId: user.id, organizationId: organization.id, role: "OWNER" },
+      });
+      await tx.loginToken.create({
+        data: {
+          tokenHash: hashToken(loginToken),
+          purpose: "LOGIN",
+          email: found.email,
+          organizationId: organization.id,
+          expiresAt: minutesFromNow(LOGIN_TOKEN_MINUTES),
+        },
+      });
+    });
+  } catch (error) {
+    // Jemand anderes war mit demselben Kürzel einen Augenblick schneller.
+    if ((error as { code?: string }).code === "P2002") return { kind: "slug-taken" };
+    throw error;
+  }
+  return { kind: "registered", slug, loginToken };
+}
+
+async function createSession(userId: string): Promise<ConfirmResult> {
+  const sessionToken = generateToken();
+  const expiresAt = minutesFromNow(SESSION_DAYS * 24 * 60);
+  await db().session.create({
+    data: { tokenHash: hashToken(sessionToken), userId, expiresAt },
+  });
+  return { kind: "session", sessionToken, expiresAt };
+}
+
+export async function destroySession(sessionToken: string): Promise<void> {
+  await db().session.deleteMany({ where: { tokenHash: hashToken(sessionToken) } });
+}
+
+/** Liefert Person und Rolle, wenn das Sitzungstoken gültig ist und sie dem Mandanten angehört. */
+export async function findMember(
+  sessionToken: string,
+  organizationId: string,
+): Promise<{ userId: string; email: string; role: "OWNER" | "MEMBER" } | null> {
+  const session = await db().session.findUnique({
+    where: { tokenHash: hashToken(sessionToken) },
+    select: {
+      expiresAt: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          memberships: { where: { organizationId }, select: { role: true } },
+        },
+      },
+    },
+  });
+  if (!session || session.expiresAt <= new Date()) return null;
+  const membership = session.user.memberships[0];
+  if (!membership) return null;
+  return { userId: session.user.id, email: session.user.email, role: membership.role };
+}

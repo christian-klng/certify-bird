@@ -1,4 +1,4 @@
-# Nur die Datenbank für die lokale Entwicklung. Die App läuft mit "pnpm dev".
+# Datenbank und Test-Postfach für die lokale Entwicklung. Die App läuft mit "pnpm dev".
 services:
   db:
     image: postgres:17-alpine
@@ -10,6 +10,13 @@ services:
       - "5432:5432"
     volumes:
       - db-dev:/var/lib/postgresql/data
+
+  # Fängt alle Mails ab, die die App lokal verschickt. Oberfläche: http://localhost:8025
+  mail:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   db-dev:

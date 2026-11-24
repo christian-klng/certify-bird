@@ -24,6 +24,8 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   retiredSlugs RetiredSlug[]
+  memberships  Membership[]
+  loginTokens  LoginToken[]
 }
 
 /// Früher benutzte Kürzel. Sie werden nie neu vergeben und zeigen weiter auf
@@ -36,4 +38,76 @@ model RetiredSlug {
   retiredAt      DateTime      @default(now())
 
   @@index([organizationId])
+}
+
+/// Eine Person, die sich anmelden kann. Global über die E-Mail-Adresse,
+/// die Zugehörigkeit zu Mandanten regelt Membership.
+model User {
+  id        String   @id @default(uuid())
+  /// Immer kleingeschrieben gespeichert.
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  memberships Membership[]
+  sessions    Session[]
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+/// Zugehörigkeit einer Person zu einem Mandanten.
+model Membership {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           MemberRole   @default(MEMBER)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+enum LoginTokenPurpose {
+  /// Anmeldung eines bestehenden Mitglieds bei einem Mandanten.
+  LOGIN
+  /// Bestätigung einer Registrierung; legt den Mandanten erst beim Einlösen an.
+  REGISTER
+}
+
+/// Einmal-Token aus dem Magic Link. Gespeichert wird nur der Hash.
+model LoginToken {
+  id        String            @id @default(uuid())
+  tokenHash String            @unique
+  purpose   LoginTokenPurpose
+  email     String
+
+  /// Bei LOGIN: der Mandant, für den der Link gilt.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Bei REGISTER: die gewünschten Angaben des neuen Mandanten.
+  pendingOrgName String?
+  pendingOrgSlug String?
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, createdAt])
+}
+
+/// Angemeldete Sitzung. Der Cookie enthält das Token, die Datenbank nur den Hash.
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

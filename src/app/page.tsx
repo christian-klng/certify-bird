@@ -24,6 +24,7 @@ async function Home() {
         eyebrow="Certify Bird"
         title="Zertifikate für Bildungsanbieter"
         text="Vorlagen gestalten, Teilnahmezertifikate ausstellen und als Open Badge bereitstellen."
+        link={{ href: "/register", label: "Anbieter registrieren" }}
       />
     );
   }
@@ -33,7 +34,7 @@ async function Home() {
       <Intro
         eyebrow="Einrichtung"
         title="Noch kein Bildungsanbieter angelegt"
-        text="Setze ORG_NAME und führe „pnpm db:seed“ aus, um den Anbieter dieser Instanz anzulegen."
+        text="Setze ORG_NAME und ADMIN_EMAIL und führe „pnpm db:seed“ aus, um den Anbieter dieser Instanz anzulegen."
       />
     );
   }
@@ -43,11 +44,17 @@ async function Home() {
       eyebrow="Zertifikate"
       title={tenant.organization.name}
       text="Hier erscheinen künftig die Zertifikate dieses Bildungsanbieters."
+      link={{ href: "/login", label: "Anmelden" }}
     />
   );
 }
 
-function Intro(props: { eyebrow: string; title: string; text: string }) {
+function Intro(props: {
+  eyebrow: string;
+  title: string;
+  text: string;
+  link?: { href: string; label: string };
+}) {
   return (
     <>
       <p className="text-sm font-medium text-primary-strong">{props.eyebrow}</p>
@@ -55,6 +62,16 @@ function Intro(props: { eyebrow: string; title: string; text: string }) {
         {props.title}
       </h1>
       <p className="mt-4 text-base text-muted">{props.text}</p>
+      {props.link && (
+        <p className="mt-6 text-sm">
+          <a
+            href={props.link.href}
+            className="text-primary-strong underline underline-offset-2 hover:no-underline"
+          >
+            {props.link.label}
+          </a>
+        </p>
+      )}
     </>
   );
 }
