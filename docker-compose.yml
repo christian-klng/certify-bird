@@ -20,6 +20,9 @@ services:
     build:
       context: .
       target: migrate
+    # Läuft einmal und beendet sich. Ohne diese Zeile setzt Coolify
+    # "unless-stopped", startet den Container endlos neu und die App wartet ewig.
+    restart: "no"
     environment:
       DATABASE_URL: postgresql://certifybird:${POSTGRES_PASSWORD}@db:5432/certifybird
       ORG_NAME: ${ORG_NAME:-}
