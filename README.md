@@ -7,8 +7,8 @@ bereitstellen. Open Source und selbst hostbar.
 > **Stand:** Früh. Es gibt die Mandantenverwaltung per Hostname, die beiden
 > Betriebsmodi, die Anmeldung per Magic Link, Zertifikatsvorlagen, das
 > Ausstellen von Zertifikaten als PDF, das Portal für Teilnehmende, die
-> öffentliche Zertifikatsseite und Open Badges. Es fehlen noch eigene Domains im
-> SaaS-Betrieb und Quizzes.
+> öffentliche Zertifikatsseite, Open Badges und eigene Domains im SaaS-Betrieb.
+> Es fehlen noch Quizzes.
 
 ## Betriebsmodi
 
@@ -25,6 +25,12 @@ Mandant mit geprüfter eigener Subdomain tritt nur unter dieser auf; seine
 `<kürzel>.<APP_DOMAIN>`-Adresse leitet dorthin um. Kürzel werden nie neu
 vergeben, auch nicht nach Umbenennung oder Löschung, weil ausgestellte
 Zertifikate dauerhaft auf ihre Adresse verweisen.
+
+Die eigene Subdomain trägt der Inhaber unter „Eigene Domain" ein. Sie wird
+erst aktiv, wenn ihr CNAME auf `<kürzel>.<APP_DOMAIN>` zeigt und die Instanz
+darunter per HTTPS erreichbar ist. Wie Wildcard-Zertifikat und Zertifikate für
+eigene Domains auf Coolify eingerichtet werden, steht in
+[docs/saas-betrieb.md](docs/saas-betrieb.md).
 
 ## Anmeldung
 
@@ -165,6 +171,7 @@ Unter `/api/health` meldet die App, ob sie und die Datenbank erreichbar sind.
 | `SMTP_HOST`, `SMTP_PORT` | Mailserver; Port 587 (STARTTLS) oder 465 (TLS) |
 | `SMTP_USER`, `SMTP_PASSWORD` | Zugangsdaten des Postfachs |
 | `SMTP_FROM` | Absenderadresse; bei den meisten Anbietern muss sie zum Postfach gehören |
+| `TRAEFIK_SERVICE_URL`, `TRAEFIK_CERT_RESOLVER` | Nur SaaS mit eigenen Domains, siehe [docs/saas-betrieb.md](docs/saas-betrieb.md) |
 
 ## Technik
 

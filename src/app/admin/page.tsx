@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Heading, Page, TextLink } from "@/components/ui";
 import { getCurrentMember } from "@/lib/auth/request";
+import { readConfig } from "@/lib/config";
 
 export const metadata = { title: "Verwaltung – Certify Bird", robots: "noindex" };
 
@@ -18,6 +19,7 @@ export default function AdminPage() {
 async function Admin() {
   const member = await getCurrentMember();
   if (!member) redirect("/login");
+  const showDomain = readConfig().mode === "saas" && member.role === "OWNER";
 
   return (
     <>
@@ -33,6 +35,11 @@ async function Admin() {
         <li>
           <TextLink href="/admin/zertifikate">Zertifikate</TextLink>
         </li>
+        {showDomain && (
+          <li>
+            <TextLink href="/admin/domain">Eigene Domain</TextLink>
+          </li>
+        )}
       </ul>
       <dl className="mt-6 space-y-2 border-t border-border pt-5 text-sm">
         <div className="flex justify-between gap-4">

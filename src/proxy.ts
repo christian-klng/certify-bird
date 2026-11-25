@@ -77,5 +77,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Statische Dateien und die Statusabfrage hängen nicht vom Mandanten ab.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/health).*)"],
+  // Die Domain-Abfragen müssen auch unter noch unbekannten Hosts antworten.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/health|api/domain-check|api/tls-check|api/traefik-config).*)"],
 };

@@ -48,6 +48,12 @@ async function Login(props: { searchParams: PageProps<"/login">["searchParams"] 
         title="Anmelden"
         text="Gib deine E-Mail-Adresse ein. Du bekommst einen Link, mit dem du dich ohne Passwort anmeldest."
       />
+      {params.moved !== undefined && (
+        <Notice>
+          {tenant.organization.name} ist jetzt unter dieser Adresse erreichbar. Bitte melde dich
+          hier einmal neu an.
+        </Notice>
+      )}
       {params.sent !== undefined && (
         <Notice>
           Wenn diese Adresse bei uns hinterlegt ist, ist eine E-Mail mit dem
