@@ -29,6 +29,7 @@ model Organization {
   templates    CertificateTemplate[]
   issuances    Issuance[]
   certificates Certificate[]
+  signingKey   SigningKey?
 }
 
 /// Früher benutzte Kürzel. Sie werden nie neu vergeben und zeigen weiter auf
@@ -213,4 +214,19 @@ model ConsentEvent {
   createdAt     DateTime      @default(now())
 
   @@index([certificateId])
+}
+
+/// Schlüsselpaar eines Mandanten, mit dem er seine Open Badges signiert.
+/// Der öffentliche Teil ist unter /badges/keys/<id> abrufbar.
+model SigningKey {
+  /// Zugleich die Schlüsselkennung (kid) in der Adresse des öffentlichen Schlüssels.
+  id             String       @id @default(uuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  publicJwk  Json
+  /// Geheim. Verlässt die Datenbank nur zum Signieren.
+  privateJwk Json
+
+  createdAt DateTime @default(now())
 }

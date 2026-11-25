@@ -64,7 +64,7 @@ export async function proxy(request: NextRequest) {
 
   // Öffentliche Zertifikatsseiten: Ohne Einwilligung gibt es sie nicht, und
   // zwar mit echtem 404, damit auch Suchmaschinen und Vorschauen nichts sehen.
-  const publicCertificate = /^\/z\/([^/]+)(?:\/pdf)?$/.exec(pathname);
+  const publicCertificate = /^\/z\/([^/]+)(?:\/(?:pdf|badge))?$/.exec(pathname);
   if (pathname === "/z" || pathname.startsWith("/z/")) {
     if (tenant.kind !== "tenant" || !publicCertificate) return notFound();
     if (!(await isPublishedCertificate(tenant.organization.id, publicCertificate[1]))) {

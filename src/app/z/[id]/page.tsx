@@ -66,6 +66,12 @@ async function PublicCertificate(props: { params: PageProps<"/z/[id]">["params"]
           Zertifikat als PDF
         </TextLink>
       </p>
+      <h2 className="mt-8 text-sm text-muted">Open Badge</h2>
+      <p className="mt-1 text-sm">
+        Dieses Zertifikat gibt es auch als digital signiertes Open Badge (Version 3.0). Die
+        Signatur von {issuance.issuerName} lässt sich unabhängig von dieser Seite prüfen.{" "}
+        <TextLink href={`/z/${certificate.id}/badge`}>Open Badge herunterladen</TextLink>
+      </p>
       <p className="mt-10 border-t border-border pt-5 text-sm text-muted">
         Diese Seite wird von {issuance.issuerName} bereitgestellt und bestätigt, dass das
         Zertifikat echt ist.

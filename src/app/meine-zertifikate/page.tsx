@@ -65,10 +65,15 @@ async function MyCertificates(props: {
                   Ausgestellt am {formatIssueDate(certificate.issuance.issuedOn)} für{" "}
                   {certificate.recipientName}
                 </p>
-                <p className="mt-3 text-sm">
+                <p className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
                   <TextLink href={`${base}/pdf`} target="_blank">
                     Als PDF öffnen
                   </TextLink>
+                  <TextLink href={`${base}/badge`}>Open Badge herunterladen</TextLink>
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Das Open Badge ist eine digital signierte Datei für Badge-Sammlungen und
+                  Bewerbungsportale, die Open Badges 3.0 annehmen.
                 </p>
 
                 {certificate.publishedAt ? (

@@ -6,8 +6,8 @@ bereitstellen. Open Source und selbst hostbar.
 
 > **Stand:** Früh. Es gibt die Mandantenverwaltung per Hostname, die beiden
 > Betriebsmodi, die Anmeldung per Magic Link, Zertifikatsvorlagen, das
-> Ausstellen von Zertifikaten als PDF, das Portal für Teilnehmende und die
-> öffentliche Zertifikatsseite. Es fehlen noch Open Badges, eigene Domains im
+> Ausstellen von Zertifikaten als PDF, das Portal für Teilnehmende, die
+> öffentliche Zertifikatsseite und Open Badges. Es fehlen noch eigene Domains im
 > SaaS-Betrieb und Quizzes.
 
 ## Betriebsmodi
@@ -71,6 +71,27 @@ teilen kann. Der Widerruf schaltet die Seite sofort ab. Einwilligung und
 Widerruf werden mit Zeitpunkt und Fassung des Einwilligungstexts festgehalten.
 Der Text steht in `src/lib/certificates/consent.ts` und sollte vor dem
 Produktivbetrieb rechtlich geprüft werden.
+
+## Open Badges
+
+Jedes Zertifikat gibt es auch als Open Badge nach
+[Open Badges 3.0](https://www.imsglobal.org/spec/ob/v3p0/): ein Verifiable
+Credential, das der Bildungsanbieter digital signiert (JWT, RS256).
+
+- **Aussteller ist der Bildungsanbieter**, nicht Certify Bird. Sein Profil
+  steht unter `/badges/issuer`, sein öffentlicher Schlüssel unter
+  `/badges/keys/<id>`, beides auf seiner eigenen Adresse.
+- Jeder Anbieter bekommt beim ersten Badge ein eigenes Schlüsselpaar. Der
+  geheime Teil liegt in der Datenbank der Instanz; wer die Datenbank sichert,
+  sichert auch ihn.
+- Die E-Mail-Adresse der Person steht nur als gesalzener Hash im Badge.
+- Teilnehmende laden ihr Badge unter „Meine Zertifikate" herunter, Dritte von
+  der öffentlichen Zertifikatsseite, sofern eingewilligt wurde.
+
+Die Umsetzung folgt der Spezifikation, ist aber nicht von 1EdTech zertifiziert.
+Noch nicht umgesetzt: Widerruf einzelner Badges (Statusliste) und das
+Einbetten in eine Bilddatei. Ein Badge prüft nur, wer die Adresse der Instanz
+erreicht: Sie muss dauerhaft dieselbe bleiben.
 
 ## Lokale Entwicklung
 
