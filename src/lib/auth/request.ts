@@ -3,7 +3,7 @@ import { readConfig } from "../config";
 import { getCurrentTenant } from "../current-tenant";
 import { buildOrigin, trustedHostname } from "../origin";
 import type { TenantOrganization, TenantResolution } from "../tenant";
-import { findMember } from "./login";
+import { findMember, findSessionUser } from "./login";
 
 export const SESSION_COOKIE = "cb_session";
 
@@ -73,4 +73,27 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
   if (!sessionToken) return null;
   const member = await findMember(sessionToken, tenant.organization.id);
   return member ? { ...member, organization: tenant.organization } : null;
+}
+
+export type CurrentParticipant = {
+  email: string;
+  /** Ob die Person zusätzlich zur Verwaltung des Mandanten gehört. */
+  isMember: boolean;
+  organization: TenantOrganization;
+};
+
+/**
+ * Die angemeldete Person beim Mandanten der Anfrage, egal ob Mitglied oder
+ * nur mit Zertifikat. Welche Zertifikate sie sehen darf, ergibt sich aus
+ * ihrer E-Mail-Adresse.
+ */
+export async function getCurrentParticipant(): Promise<CurrentParticipant | null> {
+  const tenant = await getCurrentTenant();
+  if (tenant.kind !== "tenant") return null;
+  const sessionToken = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!sessionToken) return null;
+  const user = await findSessionUser(sessionToken);
+  if (!user) return null;
+  const member = await findMember(sessionToken, tenant.organization.id);
+  return { email: user.email, isMember: member !== null, organization: tenant.organization };
 }

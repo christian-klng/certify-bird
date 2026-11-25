@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isPublishedCertificate } from "@/lib/certificates/public";
 import { readConfig } from "@/lib/config";
 import { resolveTenant } from "@/lib/tenant";
 import { tenantLookup } from "@/lib/tenant-lookup";
@@ -20,7 +21,8 @@ function notFound(): NextResponse {
  * - Mandant über eine Nebenadresse erreicht (altes Kürzel, oder Kürzel trotz
  *   eigener Domain): Umleitung auf seine Hauptadresse, Pfad bleibt erhalten
  * - /register gibt es nur auf der Plattform-Adresse
- * - /admin ohne Sitzungs-Cookie: Umleitung zur Anmeldung
+ * - /admin und /meine-zertifikate ohne Sitzungs-Cookie: Umleitung zur Anmeldung
+ * - /z/<id> ohne veröffentlichtes Zertifikat: 404
  *
  * Das passiert hier und nicht in den Seiten, weil Seiten ihre Antwort
  * streamen und dann keinen echten Statuscode 404 oder 307 mehr senden können.
@@ -51,9 +53,22 @@ export async function proxy(request: NextRequest) {
     if (tenant.kind !== "platform") return notFound();
   }
 
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+  const needsLogin = ["/admin", "/meine-zertifikate"].some(
+    (area) => pathname === area || pathname.startsWith(`${area}/`),
+  );
+  if (needsLogin) {
     if (tenant.kind !== "tenant" || !request.cookies.has(SESSION_COOKIE)) {
       return NextResponse.redirect(`${protocol}://${host}/login`, 307);
+    }
+  }
+
+  // Öffentliche Zertifikatsseiten: Ohne Einwilligung gibt es sie nicht, und
+  // zwar mit echtem 404, damit auch Suchmaschinen und Vorschauen nichts sehen.
+  const publicCertificate = /^\/z\/([^/]+)(?:\/pdf)?$/.exec(pathname);
+  if (pathname === "/z" || pathname.startsWith("/z/")) {
+    if (tenant.kind !== "tenant" || !publicCertificate) return notFound();
+    if (!(await isPublishedCertificate(tenant.organization.id, publicCertificate[1]))) {
+      return notFound();
     }
   }
 

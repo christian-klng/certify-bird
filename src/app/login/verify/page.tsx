@@ -38,7 +38,7 @@ async function Verify(props: { searchParams: PageProps<"/login/verify">["searchP
       <>
         <Heading
           title="Link ungültig oder abgelaufen"
-          text="Anmeldelinks gelten 15 Minuten und nur einmal."
+          text="Jeder Anmeldelink gilt nur einmal und nur für begrenzte Zeit."
         />
         <p className="mt-5 text-sm">
           <TextLink href="/login">Neuen Link anfordern</TextLink>

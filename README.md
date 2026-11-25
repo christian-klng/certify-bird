@@ -5,9 +5,10 @@ ausstellen und verwalten, und jedes Zertifikat als öffentliche Seite und Open B
 bereitstellen. Open Source und selbst hostbar.
 
 > **Stand:** Früh. Es gibt die Mandantenverwaltung per Hostname, die beiden
-> Betriebsmodi, die Anmeldung per Magic Link, Zertifikatsvorlagen und das
-> Ausstellen von Zertifikaten als PDF. Es fehlen noch die Benachrichtigung der
-> Teilnehmenden, die öffentliche Zertifikatsseite und Open Badges.
+> Betriebsmodi, die Anmeldung per Magic Link, Zertifikatsvorlagen, das
+> Ausstellen von Zertifikaten als PDF, das Portal für Teilnehmende und die
+> öffentliche Zertifikatsseite. Es fehlen noch Open Badges, eigene Domains im
+> SaaS-Betrieb und Quizzes.
 
 ## Betriebsmodi
 
@@ -29,7 +30,7 @@ Zertifikate dauerhaft auf ihre Adresse verweisen.
 
 Es gibt keine Passwörter. Wer sich anmelden will, gibt seine E-Mail-Adresse ein
 und bekommt einen Link, der 15 Minuten und nur einmal gilt. Die Sitzung hält
-danach 30 Tage.
+danach 30 Tage. Das gilt für die Verwaltung genauso wie für Teilnehmende.
 
 - **Single-Modus:** Die erste Person wird über `ADMIN_EMAIL` eingetragen.
 - **SaaS-Modus:** Unter `/register` auf der Plattform-Adresse legt man einen
@@ -55,6 +56,21 @@ Drucken.
 
 Eine Ausstellung merkt sich, wie die Vorlage in diesem Moment aussah. Wer die
 Vorlage später ändert oder löscht, verändert ausgestellte Zertifikate nicht.
+
+## Teilnehmende und öffentliche Seite
+
+Aus einer Ausstellung heraus werden die Teilnehmenden per E-Mail
+benachrichtigt. Die Mail enthält einen persönlichen Anmeldelink (14 Tage
+gültig, einmalig); später bekommen sie unter `/login` jederzeit einen neuen.
+Ein Passwort gibt es auch für sie nicht.
+
+Unter `/meine-zertifikate` sehen sie ihre Zertifikate und laden das PDF
+herunter. Ein Zertifikat ist für Dritte **nur mit Einwilligung** sichtbar: Erst
+wenn die Person zustimmt, gibt es die öffentliche Seite `/z/<id>`, die sie
+teilen kann. Der Widerruf schaltet die Seite sofort ab. Einwilligung und
+Widerruf werden mit Zeitpunkt und Fassung des Einwilligungstexts festgehalten.
+Der Text steht in `src/lib/certificates/consent.ts` und sollte vor dem
+Produktivbetrieb rechtlich geprüft werden.
 
 ## Lokale Entwicklung
 

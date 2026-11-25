@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       path: "/",
       expires: result.expiresAt,
     });
-    return seeOther("/admin");
+    return seeOther(result.role === "member" ? "/admin" : "/meine-zertifikate");
   }
 
   if (result.kind === "registered") {

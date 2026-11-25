@@ -31,6 +31,7 @@ async function Issuance(props: {
   if (!issuance) notFound();
   const base = `/admin/zertifikate/${issuance.id}`;
   const count = issuance.certificates.length;
+  const pending = issuance.certificates.filter((c) => !c.notifiedAt).length;
 
   return (
     <>
@@ -43,12 +44,40 @@ async function Issuance(props: {
           issuance.template ? `, Vorlage „${issuance.template.name}“` : ""
         }.`}
       />
-      {"issued" in query && (
-        <Notice>
-          Die Zertifikate sind ausgestellt. Die Teilnehmenden wurden noch nicht benachrichtigt.
+      {"issued" in query && <Notice>Die Zertifikate sind ausgestellt.</Notice>}
+      {typeof query.notified === "string" && (
+        <Notice tone={query.failed === "0" ? "info" : "error"}>
+          {query.notified} {query.notified === "1" ? "Person wurde" : "Personen wurden"}{" "}
+          benachrichtigt.
+          {query.failed !== "0" &&
+            ` Bei ${query.failed} hat der Versand nicht geklappt; du kannst es erneut versuchen.`}
         </Notice>
       )}
+      {query.error === "mail" && (
+        <Notice tone="error">Die Benachrichtigungen konnten nicht verschickt werden.</Notice>
+      )}
       {"removed" in query && <Notice>Das Zertifikat wurde gelöscht.</Notice>}
+
+      {pending > 0 && (
+        <form
+          method="post"
+          action={`${base}/notify`}
+          className="mt-6 rounded-md border border-border px-4 py-3"
+        >
+          <p className="text-sm">
+            {pending === count
+              ? "Die Teilnehmenden wissen noch nichts von ihrem Zertifikat."
+              : `${pending} von ${count} Teilnehmenden wurden noch nicht benachrichtigt.`}{" "}
+            Sie bekommen eine E-Mail mit einem persönlichen Anmeldelink.
+          </p>
+          <button
+            type="submit"
+            className="mt-3 rounded-md bg-primary-strong px-3 py-1.5 text-sm font-medium text-white hover:brightness-95"
+          >
+            {pending} {pending === 1 ? "Person" : "Personen"} benachrichtigen
+          </button>
+        </form>
+      )}
 
       {count > 0 && (
         <p className="mt-6 text-sm">
@@ -65,7 +94,15 @@ async function Issuance(props: {
             <li key={certificate.id} className="flex items-baseline gap-4 py-3">
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{certificate.recipientName}</span>
-                <span className="block truncate text-sm text-muted">{certificate.recipientEmail}</span>
+                <span className="block truncate text-sm text-muted">
+                  {certificate.recipientEmail}
+                  {" · "}
+                  {certificate.publishedAt
+                    ? "öffentlich"
+                    : certificate.notifiedAt
+                      ? "benachrichtigt"
+                      : "noch nicht benachrichtigt"}
+                </span>
               </span>
               <TextLink href={`${base}/${certificate.id}/pdf`} target="_blank">
                 PDF

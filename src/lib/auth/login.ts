@@ -5,6 +5,8 @@ import { generateToken, hashToken } from "./tokens";
 
 const LOGIN_TOKEN_MINUTES = 15;
 const SESSION_DAYS = 30;
+/** So lange gilt der Link aus der Benachrichtigung über ein Zertifikat. */
+export const INVITATION_DAYS = 14;
 /** Höchstens so viele Links pro Adresse im Gültigkeitszeitraum. */
 const MAX_TOKENS_PER_WINDOW = 5;
 
@@ -42,12 +44,32 @@ async function sendTokenMail(
   }
 }
 
+/**
+ * Wer sich bei einem Mandanten anmelden darf: Mitglieder der Verwaltung und
+ * Personen, für die dort ein Zertifikat ausgestellt wurde.
+ */
+async function loginRole(
+  organizationId: string,
+  email: string,
+): Promise<"member" | "participant" | null> {
+  const membership = await db().membership.findFirst({
+    where: { organizationId, user: { email } },
+    select: { id: true },
+  });
+  if (membership) return "member";
+  const certificate = await db().certificate.findFirst({
+    where: { organizationId, recipientEmail: email },
+    select: { id: true },
+  });
+  return certificate ? "participant" : null;
+}
+
 function verifyUrl(origin: string, token: string): string {
   return `${origin}/login/verify?token=${token}`;
 }
 
 /**
- * Schickt einem Mitglied des Mandanten einen Anmeldelink.
+ * Schickt einem Mitglied oder einer Person mit Zertifikat einen Anmeldelink.
  * Gibt bewusst nichts zurück: Ob die Adresse bekannt ist, soll von außen
  * nicht erkennbar sein.
  */
@@ -56,13 +78,9 @@ export async function requestLogin(input: {
   organization: { id: string; name: string };
   origin: string;
 }): Promise<void> {
-  const membership = await db().membership.findFirst({
-    where: { organizationId: input.organization.id, user: { email: input.email } },
-    select: { id: true },
-  });
   const who = `${maskEmail(input.email)} bei "${input.organization.name}"`;
-  if (!membership) {
-    console.log(`Kein Anmeldelink: ${who} ist kein Mitglied.`);
+  if (!(await loginRole(input.organization.id, input.email))) {
+    console.log(`Kein Anmeldelink: ${who} ist kein Mitglied und hat kein Zertifikat.`);
     return;
   }
   if (await tooManyRecentTokens(input.email)) {
@@ -98,6 +116,35 @@ export async function requestLogin(input: {
     ].join("\n"),
   });
   console.log(`Anmeldelink an den Mailserver übergeben: ${who}.`);
+}
+
+/**
+ * Legt für die Benachrichtigung über ein Zertifikat einen Anmeldelink an, der
+ * länger gilt als ein angeforderter: Die Mail wird oft erst Tage später
+ * gelesen. Gibt die Adresse des Links zurück; verschickt wird sie vom Aufrufer.
+ */
+export async function createInvitationLink(input: {
+  email: string;
+  organizationId: string;
+  origin: string;
+}): Promise<{ url: string; tokenHash: string }> {
+  const token = generateToken();
+  const tokenHash = hashToken(token);
+  await db().loginToken.create({
+    data: {
+      tokenHash,
+      purpose: "LOGIN",
+      email: input.email,
+      organizationId: input.organizationId,
+      expiresAt: minutesFromNow(INVITATION_DAYS * 24 * 60),
+    },
+  });
+  return { url: verifyUrl(input.origin, token), tokenHash };
+}
+
+/** Nimmt einen Einladungslink zurück, dessen Mail nicht verschickt werden konnte. */
+export async function discardLoginToken(tokenHash: string): Promise<void> {
+  await db().loginToken.deleteMany({ where: { tokenHash } });
 }
 
 export type RegistrationError = "name" | "slug-invalid" | "slug-taken";
@@ -176,7 +223,7 @@ export async function peekLoginToken(
 
 export type ConfirmResult =
   /** Anmeldung erfolgreich: Das Sitzungstoken gehört in den Cookie. */
-  | { kind: "session"; sessionToken: string; expiresAt: Date }
+  | { kind: "session"; sessionToken: string; expiresAt: Date; role: "member" | "participant" }
   /** Registrierung erfolgreich: weiter zur Anmeldung beim neuen Mandanten. */
   | { kind: "registered"; slug: string; loginToken: string }
   | { kind: "invalid" }
@@ -209,12 +256,16 @@ export async function confirmLoginToken(
   if (claimed.count !== 1) return { kind: "invalid" };
 
   if (found.purpose === "LOGIN") {
-    const membership = await db().membership.findFirst({
-      where: { organizationId: found.organizationId!, user: { email: found.email } },
-      select: { userId: true },
+    // Erneut prüfen: Seit dem Verschicken kann das Zertifikat gelöscht worden sein.
+    const role = await loginRole(found.organizationId!, found.email);
+    if (!role) return { kind: "invalid" };
+    const user = await db().user.upsert({
+      where: { email: found.email },
+      update: {},
+      create: { email: found.email },
+      select: { id: true },
     });
-    if (!membership) return { kind: "invalid" };
-    return createSession(membership.userId);
+    return createSession(user.id, role);
   }
 
   const slug = found.pendingOrgSlug!;
@@ -251,13 +302,16 @@ export async function confirmLoginToken(
   return { kind: "registered", slug, loginToken };
 }
 
-async function createSession(userId: string): Promise<ConfirmResult> {
+async function createSession(
+  userId: string,
+  role: "member" | "participant",
+): Promise<ConfirmResult> {
   const sessionToken = generateToken();
   const expiresAt = minutesFromNow(SESSION_DAYS * 24 * 60);
   await db().session.create({
     data: { tokenHash: hashToken(sessionToken), userId, expiresAt },
   });
-  return { kind: "session", sessionToken, expiresAt };
+  return { kind: "session", sessionToken, expiresAt, role };
 }
 
 export async function destroySession(sessionToken: string): Promise<void> {
@@ -286,4 +340,16 @@ export async function findMember(
   const membership = session.user.memberships[0];
   if (!membership) return null;
   return { userId: session.user.id, email: session.user.email, role: membership.role };
+}
+
+/** Liefert die angemeldete Person zu einem gültigen Sitzungstoken, unabhängig von ihrer Rolle. */
+export async function findSessionUser(
+  sessionToken: string,
+): Promise<{ userId: string; email: string } | null> {
+  const session = await db().session.findUnique({
+    where: { tokenHash: hashToken(sessionToken) },
+    select: { expiresAt: true, user: { select: { id: true, email: true } } },
+  });
+  if (!session || session.expiresAt <= new Date()) return null;
+  return { userId: session.user.id, email: session.user.email };
 }

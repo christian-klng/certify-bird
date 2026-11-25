@@ -75,7 +75,7 @@ model Membership {
 }
 
 enum LoginTokenPurpose {
-  /// Anmeldung eines bestehenden Mitglieds bei einem Mandanten.
+  /// Anmeldung bei einem Mandanten: als Mitglied oder als Person mit Zertifikat.
   LOGIN
   /// Bestätigung einer Registrierung; legt den Mandanten erst beim Einlösen an.
   REGISTER
@@ -182,8 +182,35 @@ model Certificate {
   /// Immer klein geschrieben; darüber meldet sich die Person später an.
   recipientEmail String
 
+  /// Wann die Person per E-Mail von ihrem Zertifikat erfahren hat.
+  notifiedAt  DateTime?
+  /// Gesetzt, solange die Person in die öffentliche Seite eingewilligt hat.
+  /// Ohne diesen Wert ist das Zertifikat für Dritte nicht sichtbar.
+  publishedAt DateTime?
+
   createdAt DateTime @default(now())
+
+  consentEvents ConsentEvent[]
 
   @@unique([issuanceId, recipientEmail])
   @@index([organizationId, recipientEmail])
+}
+
+enum ConsentAction {
+  GRANTED
+  WITHDRAWN
+}
+
+/// Nachweis der Einwilligung in die Veröffentlichung: wer wann welchem
+/// Wortlaut zugestimmt oder widerrufen hat. Wird nur ergänzt, nie geändert.
+model ConsentEvent {
+  id            String        @id @default(uuid())
+  certificateId String
+  certificate   Certificate   @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  action        ConsentAction
+  /// Fassung des Einwilligungstexts, siehe src/lib/certificates/consent.ts.
+  textVersion   String
+  createdAt     DateTime      @default(now())
+
+  @@index([certificateId])
 }
