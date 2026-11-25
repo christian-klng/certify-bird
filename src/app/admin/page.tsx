@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { Heading, Page } from "@/components/ui";
+import { Heading, Page, TextLink } from "@/components/ui";
 import { getCurrentMember } from "@/lib/auth/request";
 
 export const metadata = { title: "Verwaltung – Certify Bird", robots: "noindex" };
@@ -24,8 +24,11 @@ async function Admin() {
       <Heading
         eyebrow="Verwaltung"
         title={member.organization.name}
-        text="Hier entstehen als Nächstes Vorlagen, Teilnehmende und Zertifikate."
+        text="Hier entstehen als Nächstes Teilnehmende und Zertifikate."
       />
+      <p className="mt-6">
+        <TextLink href="/admin/vorlagen">Vorlagen</TextLink>
+      </p>
       <dl className="mt-6 space-y-2 border-t border-border pt-5 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-muted">Angemeldet als</dt>

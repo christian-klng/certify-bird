@@ -5,8 +5,8 @@ ausstellen und verwalten, und jedes Zertifikat als öffentliche Seite und Open B
 bereitstellen. Open Source und selbst hostbar.
 
 > **Stand:** Früh. Es gibt die Mandantenverwaltung per Hostname, die beiden
-> Betriebsmodi und die Anmeldung per Magic Link, aber noch keine Vorlagen und
-> Zertifikate.
+> Betriebsmodi, die Anmeldung per Magic Link und Zertifikatsvorlagen, aber noch
+> keine Teilnehmenden und Zertifikate.
 
 ## Betriebsmodi
 
@@ -33,6 +33,16 @@ danach 30 Tage.
 - **Single-Modus:** Die erste Person wird über `ADMIN_EMAIL` eingetragen.
 - **SaaS-Modus:** Unter `/register` auf der Plattform-Adresse legt man einen
   Bildungsanbieter an und wird dessen Inhaber.
+
+## Vorlagen
+
+Unter „Vorlagen" in der Verwaltung legt man fest, wie ein Zertifikat aussieht:
+im Editor frei gestaltet oder mit einem fertigen PDF als Hintergrund. Dazu
+gehört ein Beschreibungstext des Leistungsnachweises. In einem Feld „Text mit
+Platzhaltern" werden `{name}`, `{kurs}`, `{datum}` und `{anbieter}` beim
+Ausstellen ersetzt; die Vorschau zeigt das PDF mit Beispieldaten.
+
+Editor und PDF-Erzeugung stammen von [pdfme](https://pdfme.com) (MIT).
 
 ## Lokale Entwicklung
 
@@ -109,7 +119,7 @@ Unter `/api/health` meldet die App, ob sie und die Datenbank erreichbar sind.
 
 ## Technik
 
-Next.js (App Router), TypeScript, PostgreSQL mit Prisma, Tailwind CSS.
+Next.js (App Router), TypeScript, PostgreSQL mit Prisma, Tailwind CSS, pdfme.
 
 ## Lizenz
 

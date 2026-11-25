@@ -9,6 +9,11 @@ export function Page(props: { children: ReactNode }) {
   );
 }
 
+/** Breitere, oben beginnende Seite für Listen in der Verwaltung. */
+export function WidePage(props: { children: ReactNode }) {
+  return <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">{props.children}</main>;
+}
+
 export function Heading(props: { eyebrow?: string; title: string; text?: string }) {
   return (
     <>
