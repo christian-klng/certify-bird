@@ -45,16 +45,28 @@ einen API-Zugang zu deinem DNS-Anbieter. Das ist in Coolify dokumentiert:
 <https://coolify.io/docs/knowledge-base/proxy/traefik/wildcard-certs>.
 
 In Coolify unter **Servers → Server → Proxy → Configuration** beim Dienst
-`traefik` (Beispiel Hetzner; für andere Anbieter heißen Variable und Provider
-anders):
+`traefik`. Das Beispiel gilt für eine Domain, deren DNS bei IONOS liegt; für
+andere Anbieter heißen Variable und Provider anders (Liste:
+<https://go-acme.github.io/lego/dns/>).
 
 ```yaml
 environment:
-  - HETZNER_API_TOKEN=<token>
+  - IONOS_API_KEY=<prefix>.<secret>
 command:
-  - '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=hetzner'
+  - '--certificatesresolvers.letsencrypt.acme.dnschallenge.provider=ionos'
   - '--certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=0'
 ```
+
+Den API-Schlüssel erzeugst du im Entwicklerbereich von IONOS
+(<https://developer.hosting.ionos.com/docs/getstarted>). Er besteht aus zwei
+Teilen, die mit einem Punkt verbunden werden: `<prefix>.<secret>`. Er erlaubt
+Änderungen an allen DNS-Einträgen des Kontos, gehört also nur in die
+Proxy-Konfiguration und in keinen Chat, kein Ticket und kein Repository.
+
+Der Provider `ionos` ist für IONOS „Domains & DNS" gedacht; für die IONOS
+Cloud gibt es einen eigenen (`ionoscloud`). Wartet Traefik zu kurz auf die
+Verbreitung des DNS-Eintrags, hilft `IONOS_PROPAGATION_TIMEOUT` (Sekunden,
+Standard 900).
 
 Die beiden Zeilen mit `httpchallenge` für den Resolver `letsencrypt` entfernen,
 dann den Proxy neu starten.
