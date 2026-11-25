@@ -7,8 +7,8 @@ bereitstellen. Open Source und selbst hostbar.
 > **Stand:** Früh. Es gibt die Mandantenverwaltung per Hostname, die beiden
 > Betriebsmodi, die Anmeldung per Magic Link, Zertifikatsvorlagen, das
 > Ausstellen von Zertifikaten als PDF, das Portal für Teilnehmende, die
-> öffentliche Zertifikatsseite, Open Badges und eigene Domains im SaaS-Betrieb.
-> Es fehlen noch Quizzes.
+> öffentliche Zertifikatsseite, Open Badges, eigene Domains im SaaS-Betrieb
+> und Quizzes als Leistungsabfrage.
 
 ## Betriebsmodi
 
@@ -62,6 +62,25 @@ Drucken.
 
 Eine Ausstellung merkt sich, wie die Vorlage in diesem Moment aussah. Wer die
 Vorlage später ändert oder löscht, verändert ausgestellte Zertifikate nicht.
+
+## Quizzes
+
+Ein Quiz fragt ab, was Teilnehmende gelernt haben. Unter „Quizzes" legt man
+Fragen mit Antworten zum Ankreuzen an und markiert die richtigen. Sind bei
+einer Frage mehrere richtig, zählt sie nur, wenn genau diese angekreuzt sind.
+Dazu kommen die Bestehensgrenze in Prozent und, wenn gewünscht, eine
+Höchstzahl an Versuchen.
+
+Beim Ausstellen lässt sich ein Quiz als Leistungsnachweis wählen. Dann
+entstehen noch keine Zertifikate: Die Teilnehmenden werden per E-Mail zum Quiz
+eingeladen und bekommen ihr Zertifikat in dem Moment, in dem sie es bestehen.
+Die Ausstellung zeigt, wer noch offen ist und mit welchem Ergebnis jemand
+bestanden hat. Sind die Versuche einer Person aufgebraucht, kann die
+Verwaltung sie zurücksetzen.
+
+Wie die Vorlage wird auch das Quiz beim Ausstellen kopiert; spätere Änderungen
+gelten nur für künftige Ausstellungen. Teilnehmende sehen nach einem Versuch,
+wie viele Fragen richtig waren, aber nicht welche.
 
 ## Teilnehmende und öffentliche Seite
 

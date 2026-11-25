@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Heading, TextLink, WidePage } from "@/components/ui";
 import { getCurrentMember } from "@/lib/auth/request";
 import { listTemplates } from "@/lib/certificates/templates";
+import { listQuizzes, quizContent } from "@/lib/quizzes/store";
 import { IssueForm } from "../issue-form";
 
 export const metadata = { title: "Zertifikate ausstellen – Certify Bird", robots: "noindex" };
@@ -20,7 +21,10 @@ export default function NewIssuancePage() {
 async function NewIssuance() {
   const member = await getCurrentMember();
   if (!member) redirect("/login");
-  const templates = await listTemplates(member.organization.id);
+  const [templates, quizzes] = await Promise.all([
+    listTemplates(member.organization.id),
+    listQuizzes(member.organization.id),
+  ]);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -38,6 +42,9 @@ async function NewIssuance() {
         <IssueForm
           action="/admin/zertifikate/create"
           templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+          quizzes={quizzes
+            .filter((quiz) => quizContent(quiz).questions.length > 0)
+            .map((quiz) => ({ id: quiz.id, name: quiz.name }))}
           today={today}
         />
       )}

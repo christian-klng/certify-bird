@@ -18,15 +18,24 @@ export async function POST(request: Request) {
   if (!issuedOn) return issueError("Bitte wähle ein Ausstellungsdatum.");
   if (typeof body.templateId !== "string") return issueError("Bitte wähle eine Vorlage.");
 
+  const quizId = typeof body.quizId === "string" && body.quizId ? body.quizId : null;
+
   const recipients = readRecipients(body.recipients);
   if (recipients instanceof Response) return recipients;
 
   const issuance = await createIssuance(member.organization, {
     templateId: body.templateId,
+    quizId,
     courseTitle,
     issuedOn,
     recipients,
   });
-  if (!issuance) return issueError("Die Vorlage gibt es nicht mehr.", undefined, 404);
+  if (!issuance.ok) {
+    if (issuance.reason === "no-template") {
+      return issueError("Die Vorlage gibt es nicht mehr.", undefined, 404);
+    }
+    if (issuance.reason === "no-quiz") return issueError("Das Quiz gibt es nicht mehr.", undefined, 404);
+    return issueError("Das Quiz hat noch keine Fragen.");
+  }
   return Response.json({ ok: true, id: issuance.id } satisfies IssueResponse);
 }

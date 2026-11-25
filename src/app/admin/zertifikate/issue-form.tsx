@@ -15,6 +15,8 @@ const input =
 export function IssueForm(props: {
   action: string;
   templates?: { id: string; name: string }[];
+  /** Quizzes zur Auswahl beim Anlegen (nur solche mit Fragen). */
+  quizzes?: { id: string; name: string }[];
   today?: string;
 }) {
   const { templates } = props;
@@ -22,6 +24,7 @@ export function IssueForm(props: {
   const [templateId, setTemplateId] = useState(templates?.[0]?.id ?? "");
   const [courseTitle, setCourseTitle] = useState(templates?.[0]?.name ?? "");
   const [titleEdited, setTitleEdited] = useState(false);
+  const [quizId, setQuizId] = useState("");
   const [issuedOn, setIssuedOn] = useState(props.today ?? "");
   const [recipients, setRecipients] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,7 +39,9 @@ export function IssueForm(props: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          templates ? { templateId, courseTitle, issuedOn, recipients } : { recipients },
+          templates
+            ? { templateId, quizId: quizId || null, courseTitle, issuedOn, recipients }
+            : { recipients },
         ),
       });
       const result = (await response.json()) as IssueResponse;
@@ -105,6 +110,27 @@ export function IssueForm(props: {
               onChange={(event) => setIssuedOn(event.target.value)}
             />
           </label>
+          {props.quizzes && props.quizzes.length > 0 && (
+            <label className="mt-5 block">
+              <span className="text-sm font-medium">Leistungsnachweis</span>
+              <select
+                className={input}
+                value={quizId}
+                onChange={(event) => setQuizId(event.target.value)}
+              >
+                <option value="">Ohne Quiz: Zertifikate sofort ausstellen</option>
+                {props.quizzes.map((quiz) => (
+                  <option key={quiz.id} value={quiz.id}>
+                    Quiz „{quiz.name}“ muss bestanden werden
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1.5 block text-sm text-muted">
+                Mit Quiz bekommen die Teilnehmenden ihr Zertifikat erst, wenn sie es bestanden
+                haben.
+              </span>
+            </label>
+          )}
         </>
       )}
       <label className="mt-5 block">
@@ -140,7 +166,11 @@ export function IssueForm(props: {
         disabled={busy}
         className="mt-6 inline-flex items-center justify-center rounded-md bg-primary-strong px-4 py-2 text-base font-medium text-white hover:brightness-95 disabled:opacity-50"
       >
-        {templates ? "Zertifikate ausstellen" : "Hinzufügen"}
+        {!templates
+          ? "Hinzufügen"
+          : quizId
+            ? "Teilnehmende eintragen"
+            : "Zertifikate ausstellen"}
       </button>
     </form>
   );

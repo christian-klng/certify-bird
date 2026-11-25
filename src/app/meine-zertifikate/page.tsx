@@ -5,6 +5,9 @@ import { getCurrentParticipant, getRequestContext } from "@/lib/auth/request";
 import { consentText } from "@/lib/certificates/consent";
 import { listOwnCertificates } from "@/lib/certificates/portal";
 import { formatIssueDate } from "@/lib/certificates/recipients";
+import { listOwnCandidates } from "@/lib/quizzes/candidates";
+import { attemptsLeft } from "@/lib/quizzes/quiz";
+import { issuanceQuiz } from "@/lib/quizzes/store";
 
 export const metadata = { title: "Meine Zertifikate – Certify Bird", robots: "noindex" };
 
@@ -25,7 +28,10 @@ async function MyCertificates(props: {
   if (!person) redirect("/login");
   const query = await props.searchParams;
   const { origin } = await getRequestContext();
-  const certificates = await listOwnCertificates(person.organization.id, person.email);
+  const [certificates, candidates] = await Promise.all([
+    listOwnCertificates(person.organization.id, person.email),
+    listOwnCandidates(person.organization.id, person.email),
+  ]);
 
   const smallButton =
     "rounded-md border border-border px-3 py-1.5 text-sm hover:bg-primary/10";
@@ -37,6 +43,9 @@ async function MyCertificates(props: {
         title="Meine Zertifikate"
         text={`Angemeldet als ${person.email}.`}
       />
+      {"passed" in query && (
+        <Notice>Bestanden, herzlichen Glückwunsch! Dein Zertifikat steht unten.</Notice>
+      )}
       {"published" in query && (
         <Notice>Dein Zertifikat ist jetzt öffentlich. Die Adresse steht unten.</Notice>
       )}
@@ -49,10 +58,43 @@ async function MyCertificates(props: {
         </Notice>
       )}
 
+      {candidates.length > 0 && (
+        <ul className="mt-6 space-y-4">
+          {candidates.map((candidate) => {
+            const quiz = issuanceQuiz(candidate.issuance);
+            const left = quiz ? attemptsLeft(quiz, candidate.attempts) : 0;
+            return (
+              <li key={candidate.id} className="rounded-md border border-border px-5 py-4">
+                <h2 className="text-lg font-semibold">{candidate.issuance.courseTitle}</h2>
+                <p className="mt-1 text-sm text-muted">
+                  Dein Zertifikat bekommst du, sobald du das Quiz bestanden hast.
+                  {candidate.attempts > 0 &&
+                    ` Letzter Versuch: ${candidate.lastCorrect} von ${candidate.lastTotal} richtig.`}
+                </p>
+                <p className="mt-3 text-sm">
+                  {left === 0 ? (
+                    <span className="text-muted">
+                      Deine Versuche sind aufgebraucht. Wende dich bitte an{" "}
+                      {candidate.issuance.issuerName}.
+                    </span>
+                  ) : (
+                    <TextLink href={`/meine-zertifikate/quiz/${candidate.id}`}>
+                      {candidate.attempts > 0 ? "Quiz erneut versuchen" : "Quiz beginnen"}
+                    </TextLink>
+                  )}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       {certificates.length === 0 ? (
-        <p className="mt-6 text-sm text-muted">
-          Für diese E-Mail-Adresse gibt es hier kein Zertifikat.
-        </p>
+        candidates.length === 0 && (
+          <p className="mt-6 text-sm text-muted">
+            Für diese E-Mail-Adresse gibt es hier kein Zertifikat.
+          </p>
+        )
       ) : (
         <ul className="mt-6 space-y-6">
           {certificates.map((certificate) => {

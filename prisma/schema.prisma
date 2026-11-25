@@ -30,6 +30,8 @@ model Organization {
   issuances    Issuance[]
   certificates Certificate[]
   signingKey   SigningKey?
+  quizzes      Quiz[]
+  candidates   QuizCandidate[]
 }
 
 /// Früher benutzte Kürzel. Sie werden nie neu vergeben und zeigen weiter auf
@@ -163,9 +165,17 @@ model Issuance {
   description String
   design      Json
 
+  /// Das Quiz, das für diese Ausstellung verlangt wird; nur zur Orientierung.
+  quizId  String?
+  quizRef Quiz?   @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  /// Kopie des Quiz zum Zeitpunkt der Ausstellung (siehe src/lib/quizzes/quiz.ts).
+  /// Ist sie gesetzt, gibt es ein Zertifikat erst nach bestandenem Quiz.
+  quiz    Json?
+
   createdAt DateTime @default(now())
 
   certificates Certificate[]
+  candidates   QuizCandidate[]
 
   @@index([organizationId])
 }
@@ -188,6 +198,10 @@ model Certificate {
   /// Gesetzt, solange die Person in die öffentliche Seite eingewilligt hat.
   /// Ohne diesen Wert ist das Zertifikat für Dritte nicht sichtbar.
   publishedAt DateTime?
+
+  /// Ergebnis des bestandenen Quiz, falls die Ausstellung eines verlangt.
+  quizCorrect Int?
+  quizTotal   Int?
 
   createdAt DateTime @default(now())
 
@@ -229,4 +243,50 @@ model SigningKey {
   privateJwk Json
 
   createdAt DateTime @default(now())
+}
+
+/// Ein Quiz als Leistungsabfrage: Fragen mit Antworten zum Ankreuzen.
+model Quiz {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name String
+
+  /// Einleitung, Bestehensgrenze, Zahl der Versuche und Fragen
+  /// (siehe src/lib/quizzes/quiz.ts).
+  content Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issuances Issuance[]
+
+  @@index([organizationId])
+}
+
+/// Eine Person, die für eine Ausstellung noch das Quiz bestehen muss. Besteht
+/// sie, wird daraus ein Zertifikat und dieser Eintrag verschwindet.
+model QuizCandidate {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  issuanceId     String
+  issuance       Issuance     @relation(fields: [issuanceId], references: [id], onDelete: Cascade)
+
+  name  String
+  /// Immer klein geschrieben; darüber meldet sich die Person an.
+  email String
+
+  /// Wann die Person per E-Mail zum Quiz eingeladen wurde.
+  notifiedAt  DateTime?
+  /// Zahl der abgegebenen Versuche und das Ergebnis des letzten.
+  attempts    Int       @default(0)
+  lastCorrect Int?
+  lastTotal   Int?
+
+  createdAt DateTime @default(now())
+
+  @@unique([issuanceId, email])
+  @@index([organizationId, email])
 }

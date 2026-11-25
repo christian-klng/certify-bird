@@ -54,6 +54,7 @@ async function Issuances(props: { searchParams: PageProps<"/admin/zertifikate">[
               <span className="shrink-0 text-sm text-muted">
                 {formatIssueDate(issuance.issuedOn)} · {issuance._count.certificates}{" "}
                 {issuance._count.certificates === 1 ? "Zertifikat" : "Zertifikate"}
+                {issuance._count.candidates > 0 && ` · ${issuance._count.candidates} im Quiz`}
               </span>
             </li>
           ))}

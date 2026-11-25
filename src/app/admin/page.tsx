@@ -26,11 +26,14 @@ async function Admin() {
       <Heading
         eyebrow="Verwaltung"
         title={member.organization.name}
-        text="Vorlagen gestalten und Zertifikate ausstellen."
+        text="Vorlagen gestalten, Quizzes anlegen und Zertifikate ausstellen."
       />
       <ul className="mt-6 space-y-2">
         <li>
           <TextLink href="/admin/vorlagen">Vorlagen</TextLink>
+        </li>
+        <li>
+          <TextLink href="/admin/quizzes">Quizzes</TextLink>
         </li>
         <li>
           <TextLink href="/admin/zertifikate">Zertifikate</TextLink>

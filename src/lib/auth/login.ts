@@ -46,7 +46,8 @@ async function sendTokenMail(
 
 /**
  * Wer sich bei einem Mandanten anmelden darf: Mitglieder der Verwaltung und
- * Personen, für die dort ein Zertifikat ausgestellt wurde.
+ * Personen, für die dort ein Zertifikat ausgestellt wurde oder die dort zu
+ * einem Quiz eingetragen sind.
  */
 async function loginRole(
   organizationId: string,
@@ -61,7 +62,12 @@ async function loginRole(
     where: { organizationId, recipientEmail: email },
     select: { id: true },
   });
-  return certificate ? "participant" : null;
+  if (certificate) return "participant";
+  const candidate = await db().quizCandidate.findFirst({
+    where: { organizationId, email },
+    select: { id: true },
+  });
+  return candidate ? "participant" : null;
 }
 
 function verifyUrl(origin: string, token: string): string {
@@ -80,7 +86,7 @@ export async function requestLogin(input: {
 }): Promise<void> {
   const who = `${maskEmail(input.email)} bei "${input.organization.name}"`;
   if (!(await loginRole(input.organization.id, input.email))) {
-    console.log(`Kein Anmeldelink: ${who} ist kein Mitglied und hat kein Zertifikat.`);
+    console.log(`Kein Anmeldelink: ${who} ist kein Mitglied und hat weder Zertifikat noch Quiz.`);
     return;
   }
   if (await tooManyRecentTokens(input.email)) {
@@ -256,7 +262,7 @@ export async function confirmLoginToken(
   if (claimed.count !== 1) return { kind: "invalid" };
 
   if (found.purpose === "LOGIN") {
-    // Erneut prüfen: Seit dem Verschicken kann das Zertifikat gelöscht worden sein.
+    // Erneut prüfen: Seit dem Verschicken kann das Zertifikat oder der Quiz-Eintrag gelöscht worden sein.
     const role = await loginRole(found.organizationId!, found.email);
     if (!role) return { kind: "invalid" };
     const user = await db().user.upsert({

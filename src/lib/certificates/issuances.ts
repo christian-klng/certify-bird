@@ -1,5 +1,7 @@
 import { db } from "../db";
 import type { Design, PlaceholderValues } from "./design";
+import type { QuizContent } from "../quizzes/quiz";
+import { quizContent } from "../quizzes/store";
 import { formatIssueDate, type Recipient } from "./recipients";
 
 export const MAX_COURSE_TITLE_LENGTH = 200;
@@ -14,7 +16,7 @@ export function listIssuances(organizationId: string) {
       id: true,
       courseTitle: true,
       issuedOn: true,
-      _count: { select: { certificates: true } },
+      _count: { select: { certificates: true, candidates: true } },
     },
   });
 }
@@ -24,25 +26,48 @@ export function findIssuance(organizationId: string, id: string) {
     where: { id, organizationId },
     include: {
       certificates: { orderBy: { recipientName: "asc" } },
+      candidates: { orderBy: { name: "asc" } },
+      quizRef: { select: { id: true, name: true } },
       template: { select: { id: true, name: true } },
     },
   });
 }
 
+export type CreateResult =
+  | { ok: true; id: string }
+  | { ok: false; reason: "no-template" | "no-quiz" | "empty-quiz" };
+
 /**
  * Stellt Zertifikate aus: kopiert Gestaltung und Beschreibung aus der Vorlage
- * und legt je Person ein Zertifikat an. Null, wenn es die Vorlage nicht gibt.
+ * und legt je Person ein Zertifikat an. Mit Quiz wird auch dieses kopiert, und
+ * die Personen bekommen ihr Zertifikat erst, wenn sie es bestanden haben.
  */
 export async function createIssuance(
   organization: { id: string; name: string },
-  input: { templateId: string; courseTitle: string; issuedOn: Date; recipients: Recipient[] },
-): Promise<{ id: string } | null> {
+  input: {
+    templateId: string;
+    quizId: string | null;
+    courseTitle: string;
+    issuedOn: Date;
+    recipients: Recipient[];
+  },
+): Promise<CreateResult> {
   const template = await db().certificateTemplate.findFirst({
     where: { id: input.templateId, organizationId: organization.id },
   });
-  if (!template) return null;
+  if (!template) return { ok: false, reason: "no-template" };
 
-  return db().issuance.create({
+  let quiz: { id: string; content: QuizContent } | null = null;
+  if (input.quizId) {
+    const found = await db().quiz.findFirst({
+      where: { id: input.quizId, organizationId: organization.id },
+    });
+    if (!found) return { ok: false, reason: "no-quiz" };
+    quiz = { id: found.id, content: quizContent(found) };
+    if (quiz.content.questions.length === 0) return { ok: false, reason: "empty-quiz" };
+  }
+
+  const issuance = await db().issuance.create({
     data: {
       organizationId: organization.id,
       templateId: template.id,
@@ -51,16 +76,31 @@ export async function createIssuance(
       issuedOn: input.issuedOn,
       description: template.description,
       design: template.design as object,
-      certificates: {
-        create: input.recipients.map((recipient) => ({
-          organizationId: organization.id,
-          recipientName: recipient.name,
-          recipientEmail: recipient.email,
-        })),
-      },
+      ...(quiz
+        ? {
+            quizId: quiz.id,
+            quiz: quiz.content as object,
+            candidates: {
+              create: input.recipients.map((recipient) => ({
+                organizationId: organization.id,
+                name: recipient.name,
+                email: recipient.email,
+              })),
+            },
+          }
+        : {
+            certificates: {
+              create: input.recipients.map((recipient) => ({
+                organizationId: organization.id,
+                recipientName: recipient.name,
+                recipientEmail: recipient.email,
+              })),
+            },
+          }),
     },
     select: { id: true },
   });
+  return { ok: true, id: issuance.id };
 }
 
 export type AddResult =
@@ -68,7 +108,10 @@ export type AddResult =
   | { ok: false; reason: "not-found" }
   | { ok: false; reason: "duplicates"; emails: string[] };
 
-/** Ergänzt eine Ausstellung um weitere Personen; wer schon eines hat, wird gemeldet. */
+/**
+ * Ergänzt eine Ausstellung um weitere Personen; wer schon dabei ist, wird
+ * gemeldet. Verlangt die Ausstellung ein Quiz, müssen sie es erst bestehen.
+ */
 export async function addRecipients(
   organizationId: string,
   issuanceId: string,
@@ -76,26 +119,43 @@ export async function addRecipients(
 ): Promise<AddResult> {
   const issuance = await db().issuance.findFirst({
     where: { id: issuanceId, organizationId },
-    select: { id: true },
+    select: { id: true, quiz: true },
   });
   if (!issuance) return { ok: false, reason: "not-found" };
 
-  const existing = await db().certificate.findMany({
-    where: { issuanceId, recipientEmail: { in: recipients.map((r) => r.email) } },
-    select: { recipientEmail: true },
-  });
-  if (existing.length > 0) {
-    return { ok: false, reason: "duplicates", emails: existing.map((c) => c.recipientEmail) };
-  }
+  const emails = recipients.map((r) => r.email);
+  const [certificates, candidates] = await Promise.all([
+    db().certificate.findMany({
+      where: { issuanceId, recipientEmail: { in: emails } },
+      select: { recipientEmail: true },
+    }),
+    db().quizCandidate.findMany({
+      where: { issuanceId, email: { in: emails } },
+      select: { email: true },
+    }),
+  ]);
+  const existing = [...certificates.map((c) => c.recipientEmail), ...candidates.map((c) => c.email)];
+  if (existing.length > 0) return { ok: false, reason: "duplicates", emails: existing };
 
-  await db().certificate.createMany({
-    data: recipients.map((recipient) => ({
-      organizationId,
-      issuanceId,
-      recipientName: recipient.name,
-      recipientEmail: recipient.email,
-    })),
-  });
+  if (issuance.quiz) {
+    await db().quizCandidate.createMany({
+      data: recipients.map((recipient) => ({
+        organizationId,
+        issuanceId,
+        name: recipient.name,
+        email: recipient.email,
+      })),
+    });
+  } else {
+    await db().certificate.createMany({
+      data: recipients.map((recipient) => ({
+        organizationId,
+        issuanceId,
+        recipientName: recipient.name,
+        recipientEmail: recipient.email,
+      })),
+    });
+  }
   return { ok: true };
 }
 
