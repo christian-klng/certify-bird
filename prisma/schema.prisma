@@ -27,6 +27,8 @@ model Organization {
   memberships  Membership[]
   loginTokens  LoginToken[]
   templates    CertificateTemplate[]
+  issuances    Issuance[]
+  certificates Certificate[]
 }
 
 /// Früher benutzte Kürzel. Sie werden nie neu vergeben und zeigen weiter auf
@@ -132,5 +134,56 @@ model CertificateTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  issuances Issuance[]
+
   @@index([organizationId])
+}
+
+/// Eine Ausstellung: Zertifikate für eine Weiterbildung an einem Datum.
+/// Sie hält fest, wie die Vorlage beim Ausstellen aussah. Spätere Änderungen
+/// an der Vorlage oder ihr Löschen ändern ausgestellte Zertifikate nicht.
+model Issuance {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Die Vorlage, aus der ausgestellt wurde; nur zur Orientierung.
+  templateId String?
+  template   CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  /// Titel der Weiterbildung, Platzhalter {kurs}.
+  courseTitle String
+  /// Name des Anbieters zum Zeitpunkt der Ausstellung, Platzhalter {anbieter}.
+  issuerName  String
+  /// Ausstellungsdatum, Platzhalter {datum}.
+  issuedOn    DateTime @db.Date
+
+  /// Kopien aus der Vorlage zum Zeitpunkt der Ausstellung.
+  description String
+  design      Json
+
+  createdAt DateTime @default(now())
+
+  certificates Certificate[]
+
+  @@index([organizationId])
+}
+
+/// Ein Zertifikat für eine teilnehmende Person.
+model Certificate {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  issuanceId     String
+  issuance       Issuance     @relation(fields: [issuanceId], references: [id], onDelete: Cascade)
+
+  /// Platzhalter {name}.
+  recipientName  String
+  /// Immer klein geschrieben; darüber meldet sich die Person später an.
+  recipientEmail String
+
+  createdAt DateTime @default(now())
+
+  @@unique([issuanceId, recipientEmail])
+  @@index([organizationId, recipientEmail])
 }

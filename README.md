@@ -5,8 +5,9 @@ ausstellen und verwalten, und jedes Zertifikat als öffentliche Seite und Open B
 bereitstellen. Open Source und selbst hostbar.
 
 > **Stand:** Früh. Es gibt die Mandantenverwaltung per Hostname, die beiden
-> Betriebsmodi, die Anmeldung per Magic Link und Zertifikatsvorlagen, aber noch
-> keine Teilnehmenden und Zertifikate.
+> Betriebsmodi, die Anmeldung per Magic Link, Zertifikatsvorlagen und das
+> Ausstellen von Zertifikaten als PDF. Es fehlen noch die Benachrichtigung der
+> Teilnehmenden, die öffentliche Zertifikatsseite und Open Badges.
 
 ## Betriebsmodi
 
@@ -43,6 +44,17 @@ Platzhaltern" werden `{name}`, `{kurs}`, `{datum}` und `{anbieter}` beim
 Ausstellen ersetzt; die Vorschau zeigt das PDF mit Beispieldaten.
 
 Editor und PDF-Erzeugung stammen von [pdfme](https://pdfme.com) (MIT).
+
+## Zertifikate ausstellen
+
+Unter „Zertifikate" wählt man eine Vorlage, gibt Titel und Datum der
+Weiterbildung an und fügt die Teilnehmenden als Liste ein: eine Person pro
+Zeile mit Name und E-Mail-Adresse, etwa direkt aus einer Tabelle kopiert. Jede
+Person bekommt ein Zertifikat als PDF; alle zusammen gibt es als ein PDF zum
+Drucken.
+
+Eine Ausstellung merkt sich, wie die Vorlage in diesem Moment aussah. Wer die
+Vorlage später ändert oder löscht, verändert ausgestellte Zertifikate nicht.
 
 ## Lokale Entwicklung
 

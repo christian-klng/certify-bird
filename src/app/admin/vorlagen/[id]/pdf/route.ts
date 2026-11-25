@@ -1,5 +1,5 @@
 import { checkDesign, sampleValues } from "@/lib/certificates/design";
-import { renderPdf } from "@/lib/certificates/pdf";
+import { pdfResponse, renderPdf } from "@/lib/certificates/pdf";
 import { readJson, requireMember } from "@/lib/certificates/request";
 
 /**
@@ -15,13 +15,7 @@ export async function POST(request: Request) {
 
   try {
     const pdf = await renderPdf(checked.design, sampleValues(member.organization.name));
-    return new Response(pdf, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": 'inline; filename="vorschau.pdf"',
-        "Cache-Control": "no-store",
-      },
-    });
+    return pdfResponse(pdf, "vorschau.pdf");
   } catch (error) {
     console.error("Vorschau-PDF konnte nicht erzeugt werden:", error);
     return new Response("Das PDF konnte nicht erzeugt werden.", { status: 500 });
