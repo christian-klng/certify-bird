@@ -31,5 +31,12 @@ export async function sendMail(mail: Mail): Promise<void> {
     secure: port === 465,
     auth: user ? { user, pass: process.env.SMTP_PASSWORD ?? "" } : undefined,
   });
-  await transport.sendMail({ from, to: mail.to, subject: mail.subject, text: mail.text });
+  const info = await transport.sendMail({
+    from,
+    to: mail.to,
+    subject: mail.subject,
+    text: mail.text,
+  });
+  // Die Antwort des Mailservers hilft bei der Suche, wenn eine Mail nicht ankommt.
+  console.log(`Mailserver ${host}:${port} antwortet: ${info.response}`);
 }

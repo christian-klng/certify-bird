@@ -19,6 +19,29 @@ async function tooManyRecentTokens(email: string): Promise<boolean> {
   return recent >= MAX_TOKENS_PER_WINDOW;
 }
 
+/** Für Protokollzeilen: genug, um eine Adresse wiederzuerkennen, ohne sie auszuschreiben. */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  return `${local.slice(0, 2)}***@${domain}`;
+}
+
+/**
+ * Verschickt die Mail zu einem frisch angelegten Link. Schlägt der Versand
+ * fehl, wird der Link wieder gelöscht: Er wäre unbrauchbar und würde sonst
+ * auf das Limit pro Adresse angerechnet.
+ */
+async function sendTokenMail(
+  tokenHash: string,
+  mail: Parameters<typeof sendMail>[0],
+): Promise<void> {
+  try {
+    await sendMail(mail);
+  } catch (error) {
+    await db().loginToken.deleteMany({ where: { tokenHash } });
+    throw error;
+  }
+}
+
 function verifyUrl(origin: string, token: string): string {
   return `${origin}/login/verify?token=${token}`;
 }
@@ -37,20 +60,30 @@ export async function requestLogin(input: {
     where: { organizationId: input.organization.id, user: { email: input.email } },
     select: { id: true },
   });
-  if (!membership) return;
-  if (await tooManyRecentTokens(input.email)) return;
+  const who = `${maskEmail(input.email)} bei "${input.organization.name}"`;
+  if (!membership) {
+    console.log(`Kein Anmeldelink: ${who} ist kein Mitglied.`);
+    return;
+  }
+  if (await tooManyRecentTokens(input.email)) {
+    console.log(
+      `Kein Anmeldelink: ${who} hat das Limit von ${MAX_TOKENS_PER_WINDOW} Links in ${LOGIN_TOKEN_MINUTES} Minuten erreicht.`,
+    );
+    return;
+  }
 
   const token = generateToken();
+  const tokenHash = hashToken(token);
   await db().loginToken.create({
     data: {
-      tokenHash: hashToken(token),
+      tokenHash,
       purpose: "LOGIN",
       email: input.email,
       organizationId: input.organization.id,
       expiresAt: minutesFromNow(LOGIN_TOKEN_MINUTES),
     },
   });
-  await sendMail({
+  await sendTokenMail(tokenHash, {
     to: input.email,
     subject: `Anmeldung bei ${input.organization.name}`,
     text: [
@@ -64,6 +97,7 @@ export async function requestLogin(input: {
       `Falls du keine Anmeldung angefordert hast, kannst du diese E-Mail ignorieren.`,
     ].join("\n"),
   });
+  console.log(`Anmeldelink an den Mailserver übergeben: ${who}.`);
 }
 
 export type RegistrationError = "name" | "slug-invalid" | "slug-taken";
@@ -91,12 +125,18 @@ export async function requestRegistration(input: {
   if (orgName.length < 2 || orgName.length > 120) return { ok: false, error: "name" };
   if (!isValidSlug(input.slug)) return { ok: false, error: "slug-invalid" };
   if (await slugIsTaken(input.slug)) return { ok: false, error: "slug-taken" };
-  if (await tooManyRecentTokens(input.email)) return { ok: true };
+  if (await tooManyRecentTokens(input.email)) {
+    console.log(
+      `Kein Registrierungslink: ${maskEmail(input.email)} hat das Limit von ${MAX_TOKENS_PER_WINDOW} Links in ${LOGIN_TOKEN_MINUTES} Minuten erreicht.`,
+    );
+    return { ok: true };
+  }
 
   const token = generateToken();
+  const tokenHash = hashToken(token);
   await db().loginToken.create({
     data: {
-      tokenHash: hashToken(token),
+      tokenHash,
       purpose: "REGISTER",
       email: input.email,
       pendingOrgName: orgName,
@@ -104,7 +144,7 @@ export async function requestRegistration(input: {
       expiresAt: minutesFromNow(LOGIN_TOKEN_MINUTES),
     },
   });
-  await sendMail({
+  await sendTokenMail(tokenHash, {
     to: input.email,
     subject: `Registrierung von ${orgName} bestätigen`,
     text: [
@@ -118,6 +158,7 @@ export async function requestRegistration(input: {
       `Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.`,
     ].join("\n"),
   });
+  console.log(`Registrierungslink an den Mailserver übergeben: ${maskEmail(input.email)}.`);
   return { ok: true };
 }
 
