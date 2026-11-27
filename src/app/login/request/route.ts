@@ -1,9 +1,10 @@
 import { requestLogin } from "@/lib/auth/login";
-import { getRequestContext, isSameOrigin, seeOther } from "@/lib/auth/request";
+import { getRequestContext, rejectForeignOrigin, seeOther } from "@/lib/auth/request";
 import { normalizeEmail } from "@/lib/auth/tokens";
 
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) return new Response(null, { status: 403 });
+  const rejected = rejectForeignOrigin(request);
+  if (rejected) return rejected;
 
   const { tenant, origin } = await getRequestContext();
   if (tenant.kind !== "tenant") return new Response(null, { status: 404 });

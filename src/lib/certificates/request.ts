@@ -1,4 +1,4 @@
-import { getCurrentMember, isSameOrigin, type CurrentMember } from "../auth/request";
+import { getCurrentMember, rejectForeignOrigin, type CurrentMember } from "../auth/request";
 import { MAX_DESIGN_BYTES } from "./design";
 
 /**
@@ -6,7 +6,8 @@ import { MAX_DESIGN_BYTES } from "./design";
  * Mitglied. Liefert sonst die passende Fehlerantwort.
  */
 export async function requireMember(request: Request): Promise<CurrentMember | Response> {
-  if (!isSameOrigin(request)) return new Response(null, { status: 403 });
+  const rejected = rejectForeignOrigin(request);
+  if (rejected) return rejected;
   return (await getCurrentMember()) ?? new Response("Bitte melde dich neu an.", { status: 401 });
 }
 

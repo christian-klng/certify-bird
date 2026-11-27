@@ -4,18 +4,35 @@ import { getCurrentTenant } from "../current-tenant";
 import { buildOrigin, trustedHostname } from "../origin";
 import type { TenantOrganization, TenantResolution } from "../tenant";
 import { findMember, findSessionUser } from "./login";
+import { classifyOrigin, rejectionText } from "./origin-check";
 
 export const SESSION_COOKIE = "cb_session";
 
-/** Schutz vor fremden Formularen: Der Origin-Header muss zum Host der Anfrage passen. */
-export function isSameOrigin(request: Request): boolean {
+/**
+ * Schutz vor fremden Formularen: Der Origin-Header muss zum Host der Anfrage
+ * passen. Liefert null, wenn die Anfrage in Ordnung ist, sonst die Antwort
+ * mit einer Erklärung. Jede Ablehnung steht im Log.
+ *
+ * `allowOpaque` lässt auch abgeschirmte Fenster zu (Herkunft "null"). Das ist
+ * nur dort vertretbar, wo die Anfrage ihr eigenes Geheimnis mitbringt und
+ * nicht von der Sitzung lebt, also beim Einlösen eines Anmeldelinks.
+ */
+export function rejectForeignOrigin(
+  request: Request,
+  options: { allowOpaque?: boolean } = {},
+): Response | null {
   const origin = request.headers.get("origin");
-  if (!origin) return false;
-  try {
-    return new URL(origin).host.toLowerCase() === (request.headers.get("host") ?? "").toLowerCase();
-  } catch {
-    return false;
-  }
+  const host = request.headers.get("host");
+  const kind = classifyOrigin(origin, host);
+  if (kind === "same" || (kind === "opaque" && options.allowOpaque)) return null;
+  console.warn(
+    `Formular abgelehnt (${kind === "opaque" ? "abgeschirmtes Fenster" : "fremde Herkunft"}): ` +
+      `${new URL(request.url).pathname}, Origin ${JSON.stringify(origin)}, Host ${JSON.stringify(host)}.`,
+  );
+  return new Response(rejectionText(kind), {
+    status: 403,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
 }
 
 /** Antwort, die den Browser nach einem Formular auf eine Seite derselben Adresse schickt. */

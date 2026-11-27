@@ -1,11 +1,12 @@
-import { getCurrentParticipant, isSameOrigin, seeOther } from "@/lib/auth/request";
+import { getCurrentParticipant, rejectForeignOrigin, seeOther } from "@/lib/auth/request";
 import { setPublished } from "@/lib/certificates/portal";
 
 export async function POST(
   request: Request,
   context: RouteContext<"/meine-zertifikate/[id]/publish">,
 ) {
-  if (!isSameOrigin(request)) return new Response(null, { status: 403 });
+  const rejected = rejectForeignOrigin(request);
+  if (rejected) return rejected;
   const person = await getCurrentParticipant();
   if (!person) return seeOther("/login");
   const { id } = await context.params;

@@ -1,4 +1,4 @@
-import { getCurrentParticipant, isSameOrigin, seeOther } from "@/lib/auth/request";
+import { getCurrentParticipant, rejectForeignOrigin, seeOther } from "@/lib/auth/request";
 import { submitAttempt } from "@/lib/quizzes/candidates";
 
 /** Liest die angekreuzten Antworten: Felder heißen wie die Frage, Werte wie die Antwort. */
@@ -15,7 +15,8 @@ export async function POST(
   request: Request,
   context: RouteContext<"/meine-zertifikate/quiz/[id]/submit">,
 ) {
-  if (!isSameOrigin(request)) return new Response(null, { status: 403 });
+  const rejected = rejectForeignOrigin(request);
+  if (rejected) return rejected;
   const person = await getCurrentParticipant();
   if (!person) return seeOther("/login");
   const { id } = await context.params;

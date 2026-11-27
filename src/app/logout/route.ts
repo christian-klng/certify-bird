@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 import { destroySession } from "@/lib/auth/login";
-import { isSameOrigin, seeOther, SESSION_COOKIE } from "@/lib/auth/request";
+import { rejectForeignOrigin, seeOther, SESSION_COOKIE } from "@/lib/auth/request";
 
 export async function POST(request: Request) {
-  if (!isSameOrigin(request)) return new Response(null, { status: 403 });
+  const rejected = rejectForeignOrigin(request);
+  if (rejected) return rejected;
 
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;

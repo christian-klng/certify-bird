@@ -1,4 +1,4 @@
-import { getCurrentMember, isSameOrigin, type CurrentMember } from "./auth/request";
+import { getCurrentMember, rejectForeignOrigin, type CurrentMember } from "./auth/request";
 import { readConfig } from "./config";
 
 /**
@@ -8,7 +8,8 @@ import { readConfig } from "./config";
 export async function requireOwner(
   request: Request,
 ): Promise<{ member: CurrentMember; baseDomain: string } | Response> {
-  if (!isSameOrigin(request)) return new Response(null, { status: 403 });
+  const rejected = rejectForeignOrigin(request);
+  if (rejected) return rejected;
   const config = readConfig();
   if (config.mode !== "saas" || !config.baseDomain) return new Response(null, { status: 404 });
   const member = await getCurrentMember();
