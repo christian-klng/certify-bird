@@ -26,7 +26,7 @@ Hostnamen antworten:
 
 | Adresse | Zweck |
 |---|---|
-| `/api/traefik-config` | Traefik-Konfiguration mit einem Router je eigener Domain (HTTP-Provider). Nur aktiv, wenn `TRAEFIK_SERVICE_URL` gesetzt ist. |
+| `/api/traefik-config` | Traefik-Konfiguration mit einem Router je eigener Domain (HTTP-Provider). Nur aktiv, wenn `TRAEFIK_SERVICE` oder `TRAEFIK_SERVICE_URL` gesetzt ist. |
 | `/api/tls-check?domain=…` | Für Proxys mit Zertifikaten auf Abruf (Caddy `on_demand_tls`): 200, wenn die Domain zu einem Anbieter gehört, sonst 404. |
 | `/api/domain-check` | Von der App selbst genutzt: beweist, dass sie unter einer Domain erreichbar ist. |
 
@@ -141,7 +141,40 @@ ab (HTTP-Provider:
 erlaubt eigene Startparameter für den Proxy, erwähnt den HTTP-Provider aber
 nicht.
 
-Unter **Proxy → Configuration** beim Dienst `traefik` ergänzen:
+Der Containername der App taugt nicht als Adresse: Coolify hängt ihm bei
+jedem Deployment einen Zeitstempel an (`app-<kennung>-20261128T070533`), und
+der kurze Alias `app` ist nicht eindeutig, sobald auf dem Server eine zweite
+Certify-Bird-Instanz läuft. Deshalb nutzt die Einrichtung keine Containernamen:
+
+- Traefik holt die Konfiguration über die öffentliche Adresse der Plattform.
+- Die Router der eigenen Domains verweisen auf den Traefik-Dienst, den die
+  Docker-Labels der App schon anlegen. Den führt Traefik bei jedem Deployment
+  selbst nach.
+
+**Schritt 1: Namen des Traefik-Dienstes der App herausfinden.** Auf dem Server:
+
+```bash
+docker inspect -f '{{range $k, $v := .Config.Labels}}{{$k}}={{$v}}{{println}}{{end}}' <container> | grep 'traefik.http.services'
+```
+
+`<container>` ist der aktuelle Name aus `docker ps`. Aus einer Zeile wie
+`traefik.http.services.certifybird.loadbalancer.server.port=3000` ist der
+Dienst `certifybird`; mit Provider heißt er `certifybird@docker`. Mit den
+Labels aus Abschnitt 3 ist es genau dieser Name.
+
+**Schritt 2: Variablen der App** (danach neu deployen):
+
+```bash
+# Traefik-Dienst der App, an den die eigenen Domains gehen
+TRAEFIK_SERVICE=certifybird@docker
+TRAEFIK_CERT_RESOLVER=letsencrypt-http
+```
+
+Test: `https://<APP_DOMAIN>/api/traefik-config` liefert JSON mit einem Router
+je eingetragener Domain statt 404.
+
+**Schritt 3: Startparameter des Proxys.** Unter **Proxy → Configuration** beim
+Dienst `traefik` ans Ende der Liste `command:` anfügen, dann **Restart Proxy**:
 
 ```yaml
 command:
@@ -149,25 +182,19 @@ command:
   - '--certificatesresolvers.letsencrypt-http.acme.httpchallenge=true'
   - '--certificatesresolvers.letsencrypt-http.acme.httpchallenge.entrypoint=http'
   - '--certificatesresolvers.letsencrypt-http.acme.storage=/traefik/acme-http.json'
-  # Zum Ausprobieren: Staging-Zertifizierungsstelle, später entfernen
-  - '--certificatesresolvers.letsencrypt-http.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory'
   # Die Router für eigene Domains kommen von der App
-  - '--providers.http.endpoint=http://<app-container>:3000/api/traefik-config'
+  - '--providers.http.endpoint=https://<APP_DOMAIN>/api/traefik-config'
 ```
 
-Variablen der App:
+Zum Ausprobieren lässt sich die Staging-Zertifizierungsstelle eintragen
+(`--certificatesresolvers.letsencrypt-http.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory`).
+Ihre Zertifikate sind aber nicht vertrauenswürdig, „Jetzt prüfen" schlägt
+damit immer fehl.
 
-```bash
-# Adresse der App aus Sicht des Proxys
-TRAEFIK_SERVICE_URL=http://<app-container>:3000
-TRAEFIK_CERT_RESOLVER=letsencrypt-http
-```
-
-`<app-container>` ist der Name, unter dem der Proxy den Container der App im
-Docker-Netz erreicht. Coolify hängt an Containernamen eine Kennung an; den
-tatsächlichen Namen zeigt `docker ps` auf dem Server. **Offen:** ob dieser Name
-über Deployments hinweg gleich bleibt. Falls nicht, braucht der Dienst einen
-festen Netzwerk-Alias.
+Ohne die Labels aus Abschnitt 3 (etwa wenn Coolify die Labels selbst
+verwaltet) geht statt `TRAEFIK_SERVICE` auch `TRAEFIK_SERVICE_URL` mit einer
+festen Adresse der App aus Sicht des Proxys, z. B. `http://<alias>:3000`.
+Dafür braucht der Dienst einen eindeutigen, festen Netzwerk-Alias.
 
 ### Ablauf für einen Anbieter
 

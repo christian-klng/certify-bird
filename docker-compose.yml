@@ -47,6 +47,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       # Nur für den SaaS-Betrieb mit eigenen Domains, siehe docs/saas-betrieb.md.
+      TRAEFIK_SERVICE: ${TRAEFIK_SERVICE:-}
       TRAEFIK_SERVICE_URL: ${TRAEFIK_SERVICE_URL:-}
       TRAEFIK_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER:-}
     # Der Port wird nicht nach außen freigegeben: Davor gehört ein Reverse

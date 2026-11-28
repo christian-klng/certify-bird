@@ -190,7 +190,7 @@ Unter `/api/health` meldet die App, ob sie und die Datenbank erreichbar sind.
 | `SMTP_HOST`, `SMTP_PORT` | Mailserver; Port 587 (STARTTLS) oder 465 (TLS) |
 | `SMTP_USER`, `SMTP_PASSWORD` | Zugangsdaten des Postfachs |
 | `SMTP_FROM` | Absenderadresse; bei den meisten Anbietern muss sie zum Postfach gehören |
-| `TRAEFIK_SERVICE_URL`, `TRAEFIK_CERT_RESOLVER` | Nur SaaS mit eigenen Domains, siehe [docs/saas-betrieb.md](docs/saas-betrieb.md) |
+| `TRAEFIK_SERVICE`, `TRAEFIK_SERVICE_URL`, `TRAEFIK_CERT_RESOLVER` | Nur SaaS mit eigenen Domains, siehe [docs/saas-betrieb.md](docs/saas-betrieb.md) |
 
 ## Technik
 
