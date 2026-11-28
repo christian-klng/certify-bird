@@ -134,6 +134,21 @@ export function TemplateEditor(props: {
     }
   }
 
+  /** Übernimmt eine Gestaltung aus einer Datei (das Format von pdfme, wie es auch gespeichert wird). */
+  async function importDesign(file: File | undefined) {
+    if (!file || !designer.current) return;
+    try {
+      designer.current.updateTemplate(JSON.parse(await file.text()));
+      setDirty(true);
+      setStatus({
+        tone: "info",
+        text: `Gestaltung aus „${file.name}“ übernommen. Sie gilt erst nach dem Speichern.`,
+      });
+    } catch {
+      setStatus({ tone: "error", text: "Die Datei enthält keine gültige Gestaltung." });
+    }
+  }
+
   const button =
     "rounded-md border border-border px-3 py-1.5 text-sm hover:bg-primary/10 disabled:opacity-50";
   const input =
@@ -180,6 +195,19 @@ export function TemplateEditor(props: {
               disabled={!ready}
               onChange={(event) => {
                 void importPdf(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+          </label>
+          <label className={`${button} cursor-pointer`}>
+            Gestaltung importieren
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="sr-only"
+              disabled={!ready}
+              onChange={(event) => {
+                void importDesign(event.target.files?.[0]);
                 event.target.value = "";
               }}
             />
