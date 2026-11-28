@@ -142,15 +142,17 @@ model CertificateTemplate {
   @@index([organizationId])
 }
 
-/// Eine Ausstellung: Zertifikate für eine Weiterbildung an einem Datum.
-/// Sie hält fest, wie die Vorlage beim Ausstellen aussah. Spätere Änderungen
-/// an der Vorlage oder ihr Löschen ändern ausgestellte Zertifikate nicht.
+/// Eine Kohorte (in der Oberfläche so genannt): ein Durchgang eines Kurses mit
+/// fester Vorlage. Personen werden eingetragen (QuizCandidate) und bekommen
+/// später ihr Zertifikat. Mit dem ersten Zertifikat hält die Kohorte fest, wie
+/// die Vorlage aussieht; spätere Änderungen an der Vorlage oder ihr Löschen
+/// ändern ausgestellte Zertifikate nicht.
 model Issuance {
   id             String       @id @default(uuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  /// Die Vorlage, aus der ausgestellt wurde; nur zur Orientierung.
+  /// Die Vorlage der Kohorte. Bis zum ersten Zertifikat wird aus ihr kopiert.
   templateId String?
   template   CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
@@ -161,7 +163,7 @@ model Issuance {
   /// Ausstellungsdatum, Platzhalter {datum}.
   issuedOn    DateTime @db.Date
 
-  /// Kopien aus der Vorlage zum Zeitpunkt der Ausstellung.
+  /// Kopien aus der Vorlage; maßgeblich ab dem ersten Zertifikat.
   description String
   design      Json
 
@@ -265,8 +267,11 @@ model Quiz {
   @@index([organizationId])
 }
 
-/// Eine Person, die für eine Ausstellung noch das Quiz bestehen muss. Besteht
-/// sie, wird daraus ein Zertifikat und dieser Eintrag verschwindet.
+/// Eine Person, die in einer Kohorte eingetragen ist und noch kein Zertifikat
+/// hat. Verlangt die Kohorte ein Quiz, muss sie es bestehen; sonst stellt die
+/// Verwaltung aus. In beiden Fällen wird daraus ein Zertifikat und dieser
+/// Eintrag verschwindet. (Der Name stammt aus der Zeit, als es Einträge nur
+/// mit Quiz gab.)
 model QuizCandidate {
   id             String       @id @default(uuid())
   organizationId String

@@ -11,11 +11,13 @@ export const MAX_COURSE_TITLE_LENGTH = 200;
 export function listIssuances(organizationId: string) {
   return db().issuance.findMany({
     where: { organizationId },
-    orderBy: [{ issuedOn: "desc" }, { createdAt: "desc" }],
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       courseTitle: true,
       issuedOn: true,
+      quiz: true,
+      template: { select: { name: true } },
       _count: { select: { certificates: true, candidates: true } },
     },
   });
@@ -38,9 +40,10 @@ export type CreateResult =
   | { ok: false; reason: "no-template" | "no-quiz" | "empty-quiz" };
 
 /**
- * Stellt Zertifikate aus: kopiert Gestaltung und Beschreibung aus der Vorlage
- * und legt je Person ein Zertifikat an. Mit Quiz wird auch dieses kopiert, und
- * die Personen bekommen ihr Zertifikat erst, wenn sie es bestanden haben.
+ * Legt eine Kohorte an: einen Durchgang eines Kurses mit fester Vorlage und,
+ * wenn gewünscht, einem Quiz. Die Personen werden nur eingetragen; ein
+ * Zertifikat bekommen sie später (siehe issueCertificates) oder, mit Quiz,
+ * sobald sie es bestanden haben.
  */
 export async function createIssuance(
   organization: { id: string; name: string },
@@ -74,29 +77,17 @@ export async function createIssuance(
       courseTitle: input.courseTitle,
       issuerName: organization.name,
       issuedOn: input.issuedOn,
+      // Vorläufige Kopie; maßgeblich ist der Stand beim ersten Zertifikat (freezeTemplate).
       description: template.description,
       design: template.design as object,
-      ...(quiz
-        ? {
-            quizId: quiz.id,
-            quiz: quiz.content as object,
-            candidates: {
-              create: input.recipients.map((recipient) => ({
-                organizationId: organization.id,
-                name: recipient.name,
-                email: recipient.email,
-              })),
-            },
-          }
-        : {
-            certificates: {
-              create: input.recipients.map((recipient) => ({
-                organizationId: organization.id,
-                recipientName: recipient.name,
-                recipientEmail: recipient.email,
-              })),
-            },
-          }),
+      ...(quiz ? { quizId: quiz.id, quiz: quiz.content as object } : {}),
+      candidates: {
+        create: input.recipients.map((recipient) => ({
+          organizationId: organization.id,
+          name: recipient.name,
+          email: recipient.email,
+        })),
+      },
     },
     select: { id: true },
   });
@@ -109,8 +100,8 @@ export type AddResult =
   | { ok: false; reason: "duplicates"; emails: string[] };
 
 /**
- * Ergänzt eine Ausstellung um weitere Personen; wer schon dabei ist, wird
- * gemeldet. Verlangt die Ausstellung ein Quiz, müssen sie es erst bestehen.
+ * Trägt weitere Personen in eine Kohorte ein; wer schon dabei ist, wird
+ * gemeldet. Ein Zertifikat entsteht dabei noch nicht.
  */
 export async function addRecipients(
   organizationId: string,
@@ -119,7 +110,7 @@ export async function addRecipients(
 ): Promise<AddResult> {
   const issuance = await db().issuance.findFirst({
     where: { id: issuanceId, organizationId },
-    select: { id: true, quiz: true },
+    select: { id: true },
   });
   if (!issuance) return { ok: false, reason: "not-found" };
 
@@ -137,26 +128,92 @@ export async function addRecipients(
   const existing = [...certificates.map((c) => c.recipientEmail), ...candidates.map((c) => c.email)];
   if (existing.length > 0) return { ok: false, reason: "duplicates", emails: existing };
 
-  if (issuance.quiz) {
-    await db().quizCandidate.createMany({
-      data: recipients.map((recipient) => ({
-        organizationId,
-        issuanceId,
-        name: recipient.name,
-        email: recipient.email,
-      })),
-    });
-  } else {
-    await db().certificate.createMany({
-      data: recipients.map((recipient) => ({
-        organizationId,
-        issuanceId,
-        recipientName: recipient.name,
-        recipientEmail: recipient.email,
-      })),
-    });
-  }
+  await db().quizCandidate.createMany({
+    data: recipients.map((recipient) => ({
+      organizationId,
+      issuanceId,
+      name: recipient.name,
+      email: recipient.email,
+    })),
+  });
   return { ok: true };
+}
+
+type Transaction = Parameters<Parameters<ReturnType<typeof db>["$transaction"]>[0]>[0];
+
+/**
+ * Hält fest, wie die Vorlage aussieht, sobald das erste Zertifikat einer
+ * Kohorte entsteht. Bis dahin wirken Änderungen an der Vorlage noch; danach
+ * bleiben alle Zertifikate der Kohorte gleich, auch wenn die Vorlage geändert
+ * oder gelöscht wird. Gibt es die Vorlage nicht mehr, bleibt die Kopie vom
+ * Anlegen der Kohorte.
+ */
+export async function freezeTemplate(
+  tx: Transaction,
+  organizationId: string,
+  issuanceId: string,
+  issuedOn?: Date,
+): Promise<void> {
+  const existing = await tx.certificate.count({ where: { issuanceId } });
+  if (existing > 0) return;
+  const issuance = await tx.issuance.findFirst({
+    where: { id: issuanceId, organizationId },
+    select: { template: { select: { description: true, design: true } } },
+  });
+  if (!issuance) return;
+  await tx.issuance.update({
+    where: { id: issuanceId },
+    data: {
+      ...(issuance.template
+        ? { description: issuance.template.description, design: issuance.template.design as object }
+        : {}),
+      ...(issuedOn ? { issuedOn } : {}),
+    },
+  });
+}
+
+export type IssueResult =
+  | { ok: true; issued: number }
+  | { ok: false; reason: "not-found" | "quiz" | "nobody" };
+
+/**
+ * Stellt eingetragenen Personen einer Kohorte ihr Zertifikat aus. Das Datum
+ * gilt für die ganze Kohorte und lässt sich nur setzen, solange sie noch kein
+ * Zertifikat enthält. Kohorten mit Quiz stellen von selbst aus, sobald jemand
+ * besteht; hier ist das nicht möglich.
+ */
+export async function issueCertificates(
+  organizationId: string,
+  issuanceId: string,
+  input: { candidateIds: string[]; issuedOn: Date | null },
+): Promise<IssueResult> {
+  return db().$transaction(async (tx) => {
+    const issuance = await tx.issuance.findFirst({
+      where: { id: issuanceId, organizationId },
+      select: { id: true, quiz: true },
+    });
+    if (!issuance) return { ok: false, reason: "not-found" };
+    if (issuance.quiz !== null) return { ok: false, reason: "quiz" };
+
+    const candidates = await tx.quizCandidate.findMany({
+      where: { issuanceId, organizationId, id: { in: input.candidateIds } },
+    });
+    if (candidates.length === 0) return { ok: false, reason: "nobody" };
+
+    await freezeTemplate(tx, organizationId, issuanceId, input.issuedOn ?? undefined);
+    await tx.certificate.createMany({
+      data: candidates.map((candidate) => ({
+        organizationId,
+        issuanceId,
+        recipientName: candidate.name,
+        recipientEmail: candidate.email,
+      })),
+    });
+    await tx.quizCandidate.deleteMany({
+      where: { issuanceId, id: { in: candidates.map((c) => c.id) } },
+    });
+    return { ok: true, issued: candidates.length };
+  });
 }
 
 export async function deleteIssuance(organizationId: string, id: string): Promise<void> {
@@ -184,7 +241,7 @@ export function certificateValues(
   };
 }
 
-/** Die gespeicherte Gestaltung einer Ausstellung. Sie wurde beim Speichern der Vorlage geprüft. */
+/** Die gespeicherte Gestaltung einer Kohorte. Sie wurde beim Speichern der Vorlage geprüft. */
 export function issuanceDesign(issuance: { design: unknown }): Design {
   return issuance.design as Design;
 }

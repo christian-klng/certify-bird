@@ -2,7 +2,7 @@ import { getCurrentMember } from "@/lib/auth/request";
 import { certificateValues, findIssuance, issuanceDesign } from "@/lib/certificates/issuances";
 import { pdfResponse, renderPdfs } from "@/lib/certificates/pdf";
 
-/** Alle Zertifikate einer Ausstellung in einem PDF, zum Drucken. */
+/** Alle Zertifikate einer Kohorte in einem PDF, zum Drucken. */
 export async function GET(_request: Request, context: RouteContext<"/admin/zertifikate/[id]/pdf">) {
   const member = await getCurrentMember();
   if (!member) return new Response(null, { status: 401 });

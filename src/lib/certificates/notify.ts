@@ -3,10 +3,11 @@ import { db } from "../db";
 import { sendMail } from "../mail";
 
 /**
- * Benachrichtigt alle Personen einer Ausstellung, die noch keine Mail bekommen
+ * Benachrichtigt alle Personen einer Kohorte, die noch keine Mail bekommen
  * haben: über ihr Zertifikat oder, wenn sie erst ein Quiz bestehen müssen,
- * mit der Einladung dazu. Jede Mail enthält einen persönlichen Anmeldelink.
- * Null, wenn es die Ausstellung nicht gibt.
+ * mit der Einladung dazu. Wer in einer Kohorte ohne Quiz nur eingetragen ist,
+ * bekommt nichts. Jede Mail enthält einen persönlichen Anmeldelink.
+ * Null, wenn es die Kohorte nicht gibt.
  */
 export async function notifyIssuance(
   organizationId: string,
@@ -47,7 +48,7 @@ export async function notifyIssuance(
         db().certificate.update({ where: { id: certificate.id }, data: { notifiedAt: new Date() } }),
       label: `Zertifikat ${certificate.id}`,
     })),
-    ...issuance.candidates.map((candidate) => ({
+    ...(issuance.quiz === null ? [] : issuance.candidates).map((candidate) => ({
       to: candidate.email,
       subject: `Dein Quiz: ${issuance.courseTitle}`,
       text: (url: string) => [

@@ -14,7 +14,7 @@ export async function POST(request: Request, context: RouteContext<"/admin/zerti
   const result = await addRecipients(member.organization.id, id, recipients);
   if (result.ok) return Response.json({ ok: true, id } satisfies IssueResponse);
   if (result.reason === "not-found") {
-    return issueError("Die Ausstellung gibt es nicht mehr.", undefined, 404);
+    return issueError("Die Kohorte gibt es nicht mehr.", undefined, 404);
   }
   return issueError(
     "Diese Personen sind hier schon eingetragen. Es wurde nichts hinzugefügt.",

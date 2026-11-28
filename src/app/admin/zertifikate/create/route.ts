@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
   const courseTitle = typeof body.courseTitle === "string" ? body.courseTitle.trim() : "";
   if (!courseTitle || courseTitle.length > MAX_COURSE_TITLE_LENGTH) {
-    return issueError("Bitte gib den Titel der Weiterbildung ein (höchstens 200 Zeichen).");
+    return issueError("Bitte gib den Namen des Kurses ein (höchstens 200 Zeichen).");
   }
   const issuedOn = parseIssueDate(body.issuedOn);
   if (!issuedOn) return issueError("Bitte wähle ein Ausstellungsdatum.");
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const quizId = typeof body.quizId === "string" && body.quizId ? body.quizId : null;
 
-  const recipients = readRecipients(body.recipients);
+  const recipients = readRecipients(body.recipients ?? "", { allowEmpty: true });
   if (recipients instanceof Response) return recipients;
 
   const issuance = await createIssuance(member.organization, {

@@ -1,13 +1,15 @@
+import { freezeTemplate } from "../certificates/issuances";
 import { db } from "../db";
 import { gradeQuiz, type QuizContent } from "./quiz";
-import { issuanceQuiz } from "./store";
+import { issuanceQuiz, withQuiz } from "./store";
 
 // Teilnehmende sehen genau die Quizzes, zu denen sie beim Mandanten mit ihrer
-// E-Mail-Adresse eingetragen sind.
+// E-Mail-Adresse eingetragen sind. Einträge in Kohorten ohne Quiz warten nur
+// darauf, dass die Verwaltung ein Zertifikat ausstellt; sie zählen hier nicht.
 
 export function listOwnCandidates(organizationId: string, email: string) {
   return db().quizCandidate.findMany({
-    where: { organizationId, email },
+    where: { organizationId, email, ...withQuiz },
     orderBy: { createdAt: "desc" },
     include: { issuance: { select: { courseTitle: true, issuerName: true, quiz: true } } },
   });
@@ -15,7 +17,7 @@ export function listOwnCandidates(organizationId: string, email: string) {
 
 export function findOwnCandidate(organizationId: string, email: string, id: string) {
   return db().quizCandidate.findFirst({
-    where: { id, organizationId, email },
+    where: { id, organizationId, email, ...withQuiz },
     include: { issuance: { select: { courseTitle: true, issuerName: true, quiz: true } } },
   });
 }
@@ -67,6 +69,7 @@ export async function submitAttempt(
       return { kind: "failed", correct: result.correct, total: result.total };
     }
 
+    await freezeTemplate(tx, organizationId, candidate.issuanceId);
     await tx.certificate.create({
       data: {
         organizationId,

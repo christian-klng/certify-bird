@@ -347,7 +347,7 @@ export function QuizEditor(props: { id: string; name: string; content: QuizConte
         </form>
       </div>
       <p className="text-sm text-muted">
-        Änderungen gelten für künftige Ausstellungen. Wo das Quiz schon verlangt wird, bleibt es,
+        Änderungen gelten für künftige Kohorten. Wo das Quiz schon verlangt wird, bleibt es,
         wie es beim Ausstellen war.
       </p>
     </>

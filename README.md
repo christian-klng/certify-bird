@@ -6,7 +6,7 @@ bereitstellen. Open Source und selbst hostbar.
 
 > **Stand:** Früh. Es gibt die Mandantenverwaltung per Hostname, die beiden
 > Betriebsmodi, die Anmeldung per Magic Link, Zertifikatsvorlagen, das
-> Ausstellen von Zertifikaten als PDF, das Portal für Teilnehmende, die
+> Kohorten mit Zertifikaten als PDF, das Portal für Teilnehmende, die
 > öffentliche Zertifikatsseite, Open Badges, eigene Domains im SaaS-Betrieb
 > und Quizzes als Leistungsabfrage.
 
@@ -52,16 +52,26 @@ Ausstellen ersetzt; die Vorschau zeigt das PDF mit Beispieldaten.
 
 Editor und PDF-Erzeugung stammen von [pdfme](https://pdfme.com) (MIT).
 
-## Zertifikate ausstellen
+## Kohorten und Zertifikate
 
-Unter „Zertifikate" wählt man eine Vorlage, gibt Titel und Datum der
-Weiterbildung an und fügt die Teilnehmenden als Liste ein: eine Person pro
-Zeile mit Name und E-Mail-Adresse, etwa direkt aus einer Tabelle kopiert. Jede
-Person bekommt ein Zertifikat als PDF; alle zusammen gibt es als ein PDF zum
-Drucken.
+Eine Kohorte ist ein Durchgang eines Kurses, etwa „Generative KI –
+Wintersemester 2026/27“. Sie ist mit einer Vorlage verbunden, und unter ihr
+stehen die Teilnehmenden und ihre Zertifikate.
 
-Eine Ausstellung merkt sich, wie die Vorlage in diesem Moment aussah. Wer die
-Vorlage später ändert oder löscht, verändert ausgestellte Zertifikate nicht.
+Unter „Kohorten und Zertifikate“ legt man eine Kohorte an: Name des Kurses,
+Vorlage, Ausstellungsdatum und auf Wunsch ein Quiz. Die Teilnehmenden trägt
+man gleich oder später als Liste ein, eine Person pro Zeile mit Name und
+E-Mail-Adresse, etwa direkt aus einer Tabelle kopiert. Eintragen allein
+erzeugt noch kein Zertifikat und verschickt keine E-Mail.
+
+Wenn es so weit ist, kreuzt man in der Kohorte an, wer ein Zertifikat bekommt,
+und stellt aus. Die Übrigen bleiben eingetragen. Jede Person bekommt ein
+Zertifikat als PDF; alle zusammen gibt es als ein PDF zum Drucken.
+
+Mit dem ersten Zertifikat hält die Kohorte fest, wie die Vorlage aussieht, und
+das Ausstellungsdatum steht fest. Bis dahin wirken Änderungen an der Vorlage
+noch. Wer die Vorlage danach ändert oder löscht, verändert die Zertifikate der
+Kohorte nicht mehr.
 
 ## Quizzes
 
@@ -71,21 +81,21 @@ einer Frage mehrere richtig, zählt sie nur, wenn genau diese angekreuzt sind.
 Dazu kommen die Bestehensgrenze in Prozent und, wenn gewünscht, eine
 Höchstzahl an Versuchen.
 
-Beim Ausstellen lässt sich ein Quiz als Leistungsnachweis wählen. Dann
-entstehen noch keine Zertifikate: Die Teilnehmenden werden per E-Mail zum Quiz
-eingeladen und bekommen ihr Zertifikat in dem Moment, in dem sie es bestehen.
-Die Ausstellung zeigt, wer noch offen ist und mit welchem Ergebnis jemand
+Beim Anlegen einer Kohorte lässt sich ein Quiz als Leistungsnachweis wählen.
+Dann stellt nicht die Verwaltung aus: Die Teilnehmenden werden per E-Mail zum
+Quiz eingeladen und bekommen ihr Zertifikat in dem Moment, in dem sie es
+bestehen. Die Kohorte zeigt, wer noch offen ist und mit welchem Ergebnis jemand
 bestanden hat. Sind die Versuche einer Person aufgebraucht, kann die
 Verwaltung sie zurücksetzen.
 
-Wie die Vorlage wird auch das Quiz beim Ausstellen kopiert; spätere Änderungen
-gelten nur für künftige Ausstellungen. Teilnehmende sehen nach einem Versuch,
+Das Quiz wird beim Anlegen der Kohorte kopiert; spätere Änderungen gelten nur
+für künftige Kohorten. Teilnehmende sehen nach einem Versuch,
 wie viele Fragen richtig waren, aber nicht welche.
 
 ## Teilnehmende und öffentliche Seite
 
-Aus einer Ausstellung heraus werden die Teilnehmenden per E-Mail
-benachrichtigt. Die Mail enthält einen persönlichen Anmeldelink (14 Tage
+Aus einer Kohorte heraus werden die Teilnehmenden per E-Mail über ihr
+Zertifikat benachrichtigt. Die Mail enthält einen persönlichen Anmeldelink (14 Tage
 gültig, einmalig); später bekommen sie unter `/login` jederzeit einen neuen.
 Ein Passwort gibt es auch für sie nicht.
 

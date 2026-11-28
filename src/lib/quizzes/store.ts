@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { db } from "../db";
 import { emptyQuiz, type QuizContent } from "./quiz";
 
@@ -44,7 +45,10 @@ export function quizContent(row: { content: unknown }): QuizContent {
   return row.content as QuizContent;
 }
 
-/** Die Kopie des Quiz in einer Ausstellung; null, wenn sie keines verlangt. */
+/** Die Kopie des Quiz in einer Kohorte; null, wenn sie keines verlangt. */
 export function issuanceQuiz(issuance: { quiz: unknown }): QuizContent | null {
   return (issuance.quiz as QuizContent | null) ?? null;
 }
+
+/** Bedingung für Einträge von Teilnehmenden: Ihre Kohorte verlangt ein Quiz. */
+export const withQuiz = { issuance: { quiz: { not: Prisma.DbNull } } } as const;

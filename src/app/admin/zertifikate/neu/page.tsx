@@ -6,7 +6,7 @@ import { listTemplates } from "@/lib/certificates/templates";
 import { listQuizzes, quizContent } from "@/lib/quizzes/store";
 import { IssueForm } from "../issue-form";
 
-export const metadata = { title: "Zertifikate ausstellen – Certify Bird", robots: "noindex" };
+export const metadata = { title: "Kohorte anlegen – Certify Bird", robots: "noindex" };
 
 export default function NewIssuancePage() {
   return (
@@ -30,9 +30,12 @@ async function NewIssuance() {
   return (
     <>
       <p className="text-sm">
-        <TextLink href="/admin/zertifikate">← Zertifikate</TextLink>
+        <TextLink href="/admin/zertifikate">← Kohorten</TextLink>
       </p>
-      <Heading title="Zertifikate ausstellen" />
+      <Heading
+        title="Kohorte anlegen"
+        text="Eine Kohorte ist ein Durchgang eines Kurses. Sie ist mit einer Vorlage verbunden; darunter stehen die Teilnehmenden und später ihre Zertifikate."
+      />
       {templates.length === 0 ? (
         <p className="mt-6 text-sm">
           Dafür brauchst du zuerst eine Vorlage.{" "}

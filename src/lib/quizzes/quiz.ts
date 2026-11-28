@@ -3,7 +3,7 @@
 export type QuizOption = { id: string; text: string; correct: boolean };
 export type QuizQuestion = { id: string; text: string; options: QuizOption[] };
 
-/** Was ein Quiz ausmacht; so liegt es in der Datenbank und in der Kopie einer Ausstellung. */
+/** Was ein Quiz ausmacht; so liegt es in der Datenbank und in der Kopie einer Kohorte. */
 export type QuizContent = {
   /** Kurzer Text, den Teilnehmende vor den Fragen lesen. */
   intro: string;

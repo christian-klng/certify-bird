@@ -9,7 +9,7 @@ import { issuanceQuiz } from "@/lib/quizzes/store";
 import { ConfirmButton } from "../confirm-button";
 import { IssueForm } from "../issue-form";
 
-export const metadata = { title: "Ausstellung – Certify Bird", robots: "noindex" };
+export const metadata = { title: "Kohorte – Certify Bird", robots: "noindex" };
 
 export default function IssuancePage(props: PageProps<"/admin/zertifikate/[id]">) {
   return (
@@ -35,27 +35,51 @@ async function Issuance(props: {
   const count = issuance.certificates.length;
   const quiz = issuanceQuiz(issuance);
   const candidates = issuance.candidates;
-  const people = count + candidates.length;
+  // In Kohorten ohne Quiz erfahren Eingetragene erst mit dem Zertifikat davon.
+  const invitable = quiz ? candidates : [];
+  const people = count + invitable.length;
   const pending =
     issuance.certificates.filter((c) => !c.notifiedAt).length +
-    candidates.filter((c) => !c.notifiedAt).length;
+    invitable.filter((c) => !c.notifiedAt).length;
+  const issuedOnValue = issuance.issuedOn.toISOString().slice(0, 10);
 
   return (
     <>
       <p className="text-sm">
-        <TextLink href="/admin/zertifikate">← Zertifikate</TextLink>
+        <TextLink href="/admin/zertifikate">← Kohorten</TextLink>
       </p>
       <Heading
         title={issuance.courseTitle}
-        text={`Ausgestellt am ${formatIssueDate(issuance.issuedOn)} von ${issuance.issuerName}${
+        text={`Kohorte von ${issuance.issuerName}${
           issuance.template ? `, Vorlage „${issuance.template.name}“` : ""
-        }.`}
+        }. ${count > 0 ? "Ausgestellt am" : "Ausstellungsdatum"} ${formatIssueDate(issuance.issuedOn)}.`}
       />
-      {"issued" in query && (
+      {"created" in query && (
         <Notice>
+          Die Kohorte ist angelegt.{" "}
           {quiz
-            ? "Die Teilnehmenden sind eingetragen. Ihr Zertifikat bekommen sie, sobald sie das Quiz bestanden haben."
-            : "Die Zertifikate sind ausgestellt."}
+            ? "Wer eingetragen ist, bekommt sein Zertifikat, sobald das Quiz bestanden ist."
+            : "Zertifikate stellst du aus, wenn es so weit ist."}
+        </Notice>
+      )}
+      {"added" in query && <Notice>Die Personen sind eingetragen.</Notice>}
+      {typeof query.issued === "string" && (
+        <Notice>
+          {query.issued === "1"
+            ? "Ein Zertifikat wurde ausgestellt."
+            : `${query.issued} Zertifikate wurden ausgestellt.`}{" "}
+          Die Personen wissen davon erst, wenn du sie benachrichtigst.
+        </Notice>
+      )}
+      {query.error === "nobody" && (
+        <Notice tone="error">Bitte kreuze mindestens eine Person an.</Notice>
+      )}
+      {query.error === "date" && (
+        <Notice tone="error">Bitte wähle ein gültiges Ausstellungsdatum.</Notice>
+      )}
+      {query.error === "quiz" && (
+        <Notice tone="error">
+          Diese Kohorte verlangt ein Quiz. Zertifikate entstehen hier nur durch Bestehen.
         </Notice>
       )}
       {typeof query.notified === "string" && (
@@ -101,7 +125,7 @@ async function Issuance(props: {
           <p className="text-sm">
             {pending < people
               ? `${pending} von ${people} Teilnehmenden wurden noch nicht benachrichtigt.`
-              : candidates.length > 0
+              : invitable.length > 0
                 ? "Die Teilnehmenden wissen noch nichts von ihrem Quiz."
                 : "Die Teilnehmenden wissen noch nichts von ihrem Zertifikat."}{" "}
             Sie bekommen eine E-Mail mit einem persönlichen Anmeldelink.
@@ -113,6 +137,86 @@ async function Issuance(props: {
             {pending} {pending === 1 ? "Person" : "Personen"} benachrichtigen
           </button>
         </form>
+      )}
+
+      {!quiz && (
+        <>
+          <h2 className="mt-8 text-base font-semibold">Eingetragen, noch ohne Zertifikat</h2>
+          {candidates.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">
+              {count === 0
+                ? "Noch ist niemand eingetragen. Unten kannst du Teilnehmende eintragen."
+                : "Alle Eingetragenen haben ihr Zertifikat."}
+            </p>
+          ) : (
+            <>
+              <ul className="mt-3 divide-y divide-border border-y border-border">
+                {candidates.map((candidate) => (
+                  <li key={candidate.id} className="flex items-baseline gap-4 py-3">
+                    <label className="flex min-w-0 flex-1 items-baseline gap-3">
+                      {/* Gehört zum Formular unten; so bleibt „Austragen" ein eigenes Formular. */}
+                      <input
+                        type="checkbox"
+                        form="issue"
+                        name="candidate"
+                        value={candidate.id}
+                        defaultChecked
+                        className="translate-y-0.5"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate">{candidate.name}</span>
+                        <span className="block truncate text-sm text-muted">{candidate.email}</span>
+                      </span>
+                    </label>
+                    <form method="post" action={`${base}/kandidaten/${candidate.id}/delete`}>
+                      <ConfirmButton question={`${candidate.name} aus dieser Kohorte austragen?`}>
+                        Austragen
+                      </ConfirmButton>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+              <form
+                id="issue"
+                method="post"
+                action={`${base}/ausstellen`}
+                className="mt-4 rounded-md border border-border px-4 py-3"
+              >
+                <p className="text-sm">
+                  Wer angekreuzt ist, bekommt ein Zertifikat. Die Übrigen bleiben eingetragen.
+                </p>
+                {count === 0 ? (
+                  <label className="mt-3 block text-sm">
+                    <span className="font-medium">Ausstellungsdatum</span>
+                    <input
+                      type="date"
+                      name="issuedOn"
+                      required
+                      defaultValue={issuedOnValue}
+                      className="mt-1.5 block rounded-md border border-border bg-background px-3 py-1.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                    />
+                    <span className="mt-1.5 block text-muted">
+                      Gilt für alle Zertifikate dieser Kohorte. Mit dem ersten Zertifikat steht
+                      auch fest, wie die Vorlage aussieht.
+                    </span>
+                  </label>
+                ) : (
+                  <p className="mt-2 text-sm text-muted">
+                    Datum und Gestaltung sind die der schon ausgestellten Zertifikate:{" "}
+                    {formatIssueDate(issuance.issuedOn)}.
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  className="mt-3 rounded-md bg-primary-strong px-3 py-1.5 text-sm font-medium text-white hover:brightness-95"
+                >
+                  Zertifikate für Angekreuzte ausstellen
+                </button>
+              </form>
+            </>
+          )}
+          <h2 className="mt-8 text-base font-semibold">Zertifikate</h2>
+        </>
       )}
 
       {quiz && (
@@ -151,7 +255,7 @@ async function Issuance(props: {
                       </form>
                     )}
                     <form method="post" action={`${candidateBase}/delete`}>
-                      <ConfirmButton question={`${candidate.name} aus dieser Ausstellung austragen?`}>
+                      <ConfirmButton question={`${candidate.name} aus dieser Kohorte austragen?`}>
                         Austragen
                       </ConfirmButton>
                     </form>
@@ -175,7 +279,7 @@ async function Issuance(props: {
         <p className="mt-6 text-sm text-muted">
           {quiz
             ? "Noch hat niemand das Quiz bestanden."
-            : "Diese Ausstellung enthält keine Zertifikate mehr."}
+            : "Noch wurde kein Zertifikat ausgestellt."}
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-border border-y border-border">
@@ -210,21 +314,21 @@ async function Issuance(props: {
         </ul>
       )}
 
-      <h2 className="mt-10 text-base font-semibold">Weitere Teilnehmende hinzufügen</h2>
-      {quiz && (
-        <p className="mt-1 text-sm text-muted">
-          Auch sie bekommen ihr Zertifikat erst nach bestandenem Quiz.
-        </p>
-      )}
+      <h2 className="mt-10 text-base font-semibold">Teilnehmende eintragen</h2>
+      <p className="mt-1 text-sm text-muted">
+        {quiz
+          ? "Sie bekommen ihr Zertifikat, sobald sie das Quiz bestanden haben."
+          : "Sie stehen danach oben in der Liste, bis du ihnen ein Zertifikat ausstellst."}
+      </p>
       <IssueForm action={`${base}/add`} />
 
       <form method="post" action={`${base}/delete`} className="mt-10 border-t border-border pt-5">
         <ConfirmButton
-          question={`Die ganze Ausstellung „${issuance.courseTitle}“ mit ${count} Zertifikaten${
-            candidates.length > 0 ? ` und ${candidates.length} offenen Quiz-Einträgen` : ""
+          question={`Die ganze Kohorte „${issuance.courseTitle}“ mit ${count} Zertifikaten${
+            candidates.length > 0 ? ` und ${candidates.length} Eingetragenen ohne Zertifikat` : ""
           } endgültig löschen?`}
         >
-          Ganze Ausstellung löschen
+          Ganze Kohorte löschen
         </ConfirmButton>
       </form>
     </>

@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { sendMail } from "../mail";
+import { withQuiz } from "../quizzes/store";
 import { isValidSlug } from "../tenant-host";
 import { generateToken, hashToken } from "./tokens";
 
@@ -64,7 +65,7 @@ async function loginRole(
   });
   if (certificate) return "participant";
   const candidate = await db().quizCandidate.findFirst({
-    where: { organizationId, email },
+    where: { organizationId, email, ...withQuiz },
     select: { id: true },
   });
   return candidate ? "participant" : null;

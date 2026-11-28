@@ -36,7 +36,7 @@ async function Admin() {
           <TextLink href="/admin/quizzes">Quizzes</TextLink>
         </li>
         <li>
-          <TextLink href="/admin/zertifikate">Zertifikate</TextLink>
+          <TextLink href="/admin/zertifikate">Kohorten und Zertifikate</TextLink>
         </li>
         {showDomain && (
           <li>
