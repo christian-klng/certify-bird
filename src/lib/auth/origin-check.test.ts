@@ -25,8 +25,10 @@ describe("classifyOrigin", () => {
 });
 
 describe("rejectionText", () => {
-  it("erklärt beim abgeschirmten Fenster, was zu tun ist", () => {
-    expect(rejectionText("opaque")).toContain("neuen Tab");
-    expect(rejectionText("foreign")).not.toContain("neuen Tab");
+  it("nennt beim abgeschirmten Fenster die Adresse für den neuen Tab", () => {
+    expect(rejectionText("opaque", "demo.example.org")).toContain("neuen Tab");
+    expect(rejectionText("opaque", "demo.example.org")).toContain("demo.example.org");
+    expect(rejectionText("opaque", null)).toContain("neuen Tab");
+    expect(rejectionText("foreign", "demo.example.org")).not.toContain("neuen Tab");
   });
 });

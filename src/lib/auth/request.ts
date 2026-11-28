@@ -29,10 +29,15 @@ export function rejectForeignOrigin(
     `Formular abgelehnt (${kind === "opaque" ? "abgeschirmtes Fenster" : "fremde Herkunft"}): ` +
       `${new URL(request.url).pathname}, Origin ${JSON.stringify(origin)}, Host ${JSON.stringify(host)}.`,
   );
-  return new Response(rejectionText(kind), {
+  return new Response(rejectionText(kind, host), {
     status: 403,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
+}
+
+/** Ob die Anfrage aus einem abgeschirmten Fenster kommt (Herkunft "null"). */
+export function isOpaqueOrigin(request: Request): boolean {
+  return classifyOrigin(request.headers.get("origin"), request.headers.get("host")) === "opaque";
 }
 
 /** Antwort, die den Browser nach einem Formular auf eine Seite derselben Adresse schickt. */

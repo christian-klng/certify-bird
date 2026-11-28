@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { confirmLoginToken } from "@/lib/auth/login";
 import {
   getRequestContext,
+  isOpaqueOrigin,
   rejectForeignOrigin,
   originForSlug,
   seeOther,
@@ -37,6 +38,12 @@ export async function POST(request: Request) {
       path: "/",
       expires: result.expiresAt,
     });
+    // Im abgeschirmten Fenster gilt die Sitzung nur für das Lesen von Seiten.
+    // Statt in eine halb funktionierende Oberfläche geht es zum Hinweis,
+    // wie man in einem normalen Tab weitermacht.
+    if (isOpaqueOrigin(request)) {
+      return seeOther(`/login/neuer-tab?ziel=${result.role === "member" ? "verwaltung" : "portal"}`);
+    }
     return seeOther(result.role === "member" ? "/admin" : "/meine-zertifikate");
   }
 
